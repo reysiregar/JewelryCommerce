@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "./queryClient";
 
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const refresh = async () => {
     try {
@@ -71,6 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiRequest("POST", "/api/auth/logout");
       setMe(null);
       toast({ title: "Logged out", description: "You have been signed out." });
+      // Navigate back to Home after logout
+      setLocation("/");
     } catch (e: any) {
       toast({ title: "Logout failed", description: e.message, variant: "destructive" });
       throw e;

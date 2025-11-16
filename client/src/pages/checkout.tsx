@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/lib/cart-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,12 +16,25 @@ import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, CreditCard, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth-context";
 
 export default function Checkout() {
   const { items, totalPrice, clearCart } = useCart();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const { me, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !me) {
+      toast({
+        title: "Login required",
+        description: "Please log in to continue to checkout.",
+        variant: "destructive",
+      });
+      setLocation("/login?returnTo=%2Fcheckout");
+    }
+  }, [loading, me, setLocation, toast]);
 
   // Create a custom schema for the form that excludes items and totalAmount
   const checkoutFormSchema = insertOrderSchema.omit({ items: true, totalAmount: true });
@@ -119,6 +132,10 @@ export default function Checkout() {
     currency: "IDR",
     minimumFractionDigits: 0,
   }).format(finalTotal / 100);
+
+  if (!loading && !me) {
+    return null; // Redirecting
+  }
 
   if (items.length === 0) {
     return (

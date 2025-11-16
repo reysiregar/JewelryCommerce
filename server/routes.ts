@@ -193,6 +193,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", async (req, res) => {
     try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ message: "Unauthorized" });
       const validated = insertOrderSchema.parse(req.body);
       const order = await storage.createOrder(validated);
       res.status(201).json(order);

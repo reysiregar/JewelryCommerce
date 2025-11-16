@@ -3,10 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Minus, Plus, X, ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 export function CartSheet() {
   const { items, totalPrice, isCartOpen, setIsCartOpen, updateQuantity, removeFromCart } = useCart();
+  const { me } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const formattedTotal = new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -134,15 +139,26 @@ export function CartSheet() {
               <p className="text-sm text-muted-foreground">
                 Shipping and taxes calculated at checkout
               </p>
-              <Link href="/checkout">
-                <Button
-                  className="w-full"
-                  onClick={() => setIsCartOpen(false)}
-                  data-testid="button-checkout"
-                >
-                  Proceed to Checkout
-                </Button>
-              </Link>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  if (!me) {
+                    toast({
+                      title: "Login required",
+                      description: "Please log in to proceed to checkout.",
+                      variant: "destructive",
+                    });
+                    setIsCartOpen(false);
+                    setLocation("/login?returnTo=%2Fcheckout");
+                    return;
+                  }
+                  setIsCartOpen(false);
+                  setLocation("/checkout");
+                }}
+                data-testid="button-checkout"
+              >
+                Proceed to Checkout
+              </Button>
             </div>
           </>
         )}

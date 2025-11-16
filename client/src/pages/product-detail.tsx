@@ -12,6 +12,8 @@ import type { Product } from "@shared/schema";
 import { useState } from "react";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
+import { useLocation } from "wouter";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:id");
@@ -23,6 +25,8 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const { addToCart, toggleCart } = useCart();
   const { toast } = useToast();
+  const { me } = useAuth();
+  const [, setLocation] = useLocation();
 
   if (isLoading) {
     return (
@@ -63,6 +67,12 @@ export default function ProductDetail() {
   }).format(product.price / 100);
 
   const handleAddToCart = () => {
+    if (!me) {
+      toast({ title: "Login required", description: "Please log in to add items to your cart.", variant: "destructive" });
+      const current = window.location.pathname + window.location.search;
+      setLocation(`/login?returnTo=${encodeURIComponent(current)}`);
+      return;
+    }
     if (product.sizes && product.sizes.length > 0 && !selectedSize) {
       toast({
         title: "Please select a size",

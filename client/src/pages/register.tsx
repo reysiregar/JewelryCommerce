@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
@@ -10,11 +10,19 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [, setLocation] = useLocation();
+  const returnTo = useMemo(() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get("returnTo") || "";
+      return v.startsWith("/") ? v : "";
+    } catch {
+      return "";
+    }
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await register(name, email, password);
-    setLocation("/dashboard");
+    setLocation(returnTo || "/dashboard");
   };
 
   return (
@@ -37,7 +45,8 @@ export default function Register() {
           <Button type="submit" className="w-full">Register</Button>
         </form>
         <p className="text-center text-muted-foreground mt-6">
-          Already have an account? <Link href="/login">Login</Link>
+          Already have an account? {" "}
+          <Link href={returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login"}>Login</Link>
         </p>
       </div>
     </div>

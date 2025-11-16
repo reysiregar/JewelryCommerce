@@ -1,5 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import type { Product } from "@shared/schema";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export interface CartItemType {
   product: Product;
@@ -25,6 +28,9 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItemType[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const { me } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -44,6 +50,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const addToCart = (product: Product, size?: string, quantity: number = 1) => {
+    if (!me) {
+      toast({
+        title: "Login required",
+        description: "Please log in to add items to your cart.",
+        variant: "destructive",
+      });
+      setIsCartOpen(false);
+      const current = window.location.pathname + window.location.search;
+      setLocation(`/login?returnTo=${encodeURIComponent(current)}`);
+      return;
+    }
     setItems((prevItems) => {
       const existingItemIndex = prevItems.findIndex(
         (item) => item.product.id === product.id && item.size === size
