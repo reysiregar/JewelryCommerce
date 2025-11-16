@@ -1,17 +1,17 @@
 # JewelCommerce (Lumière Jewelry)
 
- Elegant, full‑stack demo storefront for fine jewelry. React + Vite frontend, Express backend, and Drizzle schema for future Postgres. Ships with in‑memory data by default, cookie‑based sessions, product browsing, auth‑gated cart/checkout with simulated payments, and an admin summary.
+ Elegant, full‑stack demo storefront for fine jewelry. React + Vite frontend, Express backend, and Drizzle ORM for Postgres. Ships with in‑memory data by default, automatically uses Postgres when `DATABASE_URL` is set, cookie‑based sessions (persisted when Postgres is enabled), product browsing, auth‑gated cart/checkout with simulated payments, and an admin summary.
 
 ## Overview
 - Monorepo layout with `client/` (React + Tailwind) and `server/` (Express + Vite middleware in dev)
-- Data layer uses an in‑memory store (`MemStorage`) for products, orders, users, and sessions
-- Database schema defined via Drizzle for PostgreSQL in `shared/schema.ts` for future persistence
+- Data layer uses an in‑memory store (`MemStorage`) by default, and can use PostgreSQL via Drizzle when `DATABASE_URL` is set
+- Database schema defined via Drizzle for PostgreSQL in `shared/schema.ts` and applied via `drizzle-kit push`
 - Auth uses HTTP‑only cookie `sid` session, seeded admin account for testing
 
 ## Tech Stack
 - Frontend: React 18, Wouter (routing), Tailwind CSS, Radix UI, React Query
 - Backend: Express 4, Vite middleware in dev, Node ESM
-- Data/Validation: Zod, Drizzle ORM schema (types + migration only), in‑memory storage
+- Data/Validation: Zod, Drizzle ORM schema, in‑memory storage with optional PostgreSQL
 - Tooling: TypeScript, Vite, esbuild, tsx, Tailwind plugins
 
 ## Features
@@ -41,15 +41,18 @@ npm run build
 npm start
 ```
 
-Optional: If you intend to push the Drizzle schema to a Postgres instance later, set `DATABASE_URL` and run:
+Optional: Use PostgreSQL for persistence. Set `DATABASE_URL` and run:
 
 ```zsh
 export DATABASE_URL="postgres://user:pass@host:5432/dbname"
 npm run db:push
+
+# (Optional) seed sample products and an admin user
+npm run db:seed
 ```
 
 Notes:
-- The running app uses in‑memory storage; no database is required to use the app.
+- By default the app uses in‑memory storage; when `DATABASE_URL` is present it automatically uses PostgreSQL.
 - Static product images are served at `/assets/...` from `attached_assets/`.
 
 ---
@@ -64,7 +67,8 @@ client/           # React app (Vite)
 server/           # Express app
   index.ts        # Server bootstrap
   routes.ts       # REST API endpoints
-  storage.ts      # In‑memory storage (products, orders, users, sessions)
+  storage.ts      # Storage abstraction (in‑memory by default, Postgres via Drizzle when configured)
+  db.ts           # Drizzle + pg Pool setup (used when DATABASE_URL is set)
   vite.ts         # Vite dev server integration and static serve
 shared/
   schema.ts       # Drizzle models + Zod insert schemas (types)
@@ -106,7 +110,7 @@ Base URL: `http://localhost:5173` in dev (server and client share port via Vite 
 - `POST /api/auth/login` `{ email, password }` → logs in, sets `sid` cookie
 - `POST /api/auth/logout` → clears session cookie
 
-Seeded admin credentials:
+Seeded admin credentials (also seeded into Postgres when using `npm run db:seed`):
 - Email: `admin@lumiere.test`
 - Password: `admin123`
 
@@ -128,27 +132,27 @@ Seeded admin credentials:
 ### Payment (Simulated)
 - `POST /api/payment/simulate` `{ amount, orderId }` → 95% success, latency ~1.5s
 
-Sessions: HTTP‑only `sid` cookie (`SameSite=Lax`, path `/`) with in‑memory map `sid -> userId`.
+Sessions: HTTP‑only `sid` cookie (`SameSite=Lax`, path `/`). When `DATABASE_URL` is set, sessions are stored in the `sessions` table (Postgres). Otherwise, sessions are stored in an in‑memory map `sid -> userId`.
 
 Static assets: `/assets/*` mapped to `attached_assets/`.
 
 ---
 
 ## Data Model (shared/schema.ts)
-TypeScript types and Zod insert schemas are defined for future Postgres use.
+TypeScript types and Zod insert schemas are defined and used with Postgres when configured.
 
 - User: `{ id, name, email, passwordHash, role, createdAt }`
   - Insert: `{ name, email, role? } & { password }`
 - Product: `{ id, name, description, price (cents), category, imageUrl, images[], material, isPreOrder, inStock, sizes?[] }`
 - Order: `{ id, customerName, customerEmail, customerPhone, shippingAddress, shippingCity, shippingPostalCode, shippingCountry, items (JSON string), totalAmount (cents), status, isPreOrder, paymentStatus, createdAt }`
-- Session: stored in memory: `sid -> userId`
+- Session: `{ id (sid), userId, createdAt }`; persisted in Postgres when configured, otherwise stored in memory
 
 Currency: All monetary values are stored in IDR cents. Format on the client via `Intl.NumberFormat("id-ID")`.
 
 ---
 
 ## ERD Cheat Sheet (for ERD Owners)
-The current implementation uses in‑memory stores and a simplified schema. Relationships are mostly logical (no FKs yet). Use this as guidance when drawing an ERD.
+The implementation supports both in‑memory and Postgres stores. Relationships are mostly logical (no FKs yet). Use this as guidance when drawing an ERD.
 
 Mermaid (conceptual):
 ```mermaid
@@ -195,7 +199,7 @@ erDiagram
 
 Notes for ERD:
 - Orders currently embed `items` as JSON; there is no `order_items` table. When normalizing, introduce `ORDER_ITEM` with FK(`order_id`) and FK(`product_id`).
-- Sessions are stored in memory and keyed by `sid -> userId` (not persisted). If modeling persistence, add a `sessions` table and relate to `USER`.
+- Sessions can be persisted (when using Postgres) via `sessions` and relate to `USER`.
 - A `cart_items` schema exists for future use but is not wired in the current app flow.
 
 ## API Examples
@@ -235,10 +239,10 @@ Mermaid (system request/response flow):
 flowchart TD
   A[Browser UI] -->|HTTP GET| B[/Express Server/]
   B -->|Serves| C[Client index.html + JS]
-  A -->|XHR: /api/products| D[(MemStorage Products)]
+  A -->|XHR: /api/products| D[(DB: Products)]
   A -->|XHR: /api/search| D
-  A -->|XHR: /api/auth/*| E[(Users & Sessions)]
-  A -->|POST: /api/orders| F["Orders Store (auth)"]
+  A -->|XHR: /api/auth/*| E[(DB: Users & Sessions)]
+  A -->|POST: /api/orders| F["DB: Orders (auth)"]
   A -->|POST: /api/payment/simulate| G{{Payment Simulator}}
   G -->|status| A
 ```
@@ -246,7 +250,7 @@ flowchart TD
 ### DFD — Context Diagram (Level 0)
 - External Entities: Customer/User, Admin
 - System: JewelCommerce
-- Data Stores: Products, Orders, Users, Sessions (all in memory)
+- Data Stores: Products, Orders, Users, Sessions (Postgres when configured; memory otherwise)
 
 Mermaid (context):
 ```mermaid
@@ -324,13 +328,13 @@ flowchart TB
 - Product: `id, name, description, price_cents, category, imageUrl, images[], material, isPreOrder, inStock, sizes?[]`
 - Order: `id, customerName, customerEmail, customerPhone, shippingAddress, shippingCity, shippingPostalCode, shippingCountry, items(JSON), totalAmount_cents, status, isPreOrder, paymentStatus, createdAt`
 - User: `id, name, email, passwordHash, role, createdAt`
-- Session: `sid, userId`
+- Session: `sid, userId, createdAt` (persisted in DB when configured)
 
 ### Diagramming Tips
 - Keep context diagram to 2 external entities and 4 data stores
 - Use numbered processes in Level 1 and match them to endpoints/components
 - Show client‑only cart as a process without a server data store
-- For future DB adoption, replace in‑memory stores with PostgreSQL data stores
+- When `DATABASE_URL` is set, treat stores as DB‑backed (PostgreSQL)
 
 ---
 
@@ -346,7 +350,7 @@ flowchart TB
 - `PORT` env var can override the default `5173`
 
 ## Roadmap (Optional)
-- Swap `MemStorage` with a Postgres repo using Drizzle ORM
+- Normalize schema: add `order_items`, FKs, indexes
 - JWT or encrypted cookie sessions
 - Payment gateway integration
 - E2E tests (Playwright) and API tests

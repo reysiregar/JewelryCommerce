@@ -5,8 +5,14 @@ import {
   type InsertOrder,
   type User,
   type InsertUser,
+  products,
+  users,
+  orders,
+  sessions,
 } from "@shared/schema";
 import { createHash, randomUUID } from "crypto";
+import { initDb, getDb } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Products
@@ -592,4 +598,177 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+class PostgresStorage implements IStorage {
+  private db: any;
+
+  constructor(db: any) {
+    this.db = db;
+  }
+
+  // Helper to map rows to types where necessary
+  private mapProduct(row: any): Product {
+    return {
+      ...row,
+      images: row.images || [],
+      sizes: row.sizes || null,
+    } as Product;
+  }
+
+  // Products
+  async getProducts(): Promise<Product[]> {
+    const res = await this.db.select().from(products).execute();
+    return res.map((r: any) => this.mapProduct(r));
+  }
+
+  async getProduct(id: string): Promise<Product | undefined> {
+    const rows = await this.db
+      .select()
+      .from(products)
+      .where(eq(products.id, id))
+      .limit(1)
+      .execute();
+    if (!rows || rows.length === 0) return undefined;
+    return this.mapProduct(rows[0]);
+  }
+
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    const values = {
+      name: insertProduct.name,
+      description: insertProduct.description,
+      price: insertProduct.price,
+      category: insertProduct.category,
+      imageUrl: insertProduct.imageUrl,
+      images: insertProduct.images,
+      material: insertProduct.material,
+      isPreOrder: insertProduct.isPreOrder ?? false,
+      inStock: insertProduct.inStock ?? true,
+      sizes: (insertProduct as any).sizes ?? null,
+    } as any;
+
+    const inserted = await this.db.insert(products).values(values).returning().execute();
+    return this.mapProduct(inserted[0]);
+  }
+
+  // Orders
+  async getOrders(): Promise<Order[]> {
+    const res = await this.db.select().from(orders).execute();
+    return res.map((r: any) => ({ ...r, items: JSON.parse(r.items) }));
+  }
+
+  async getOrder(id: string): Promise<Order | undefined> {
+    const rows = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, id))
+      .limit(1)
+      .execute();
+    if (!rows || rows.length === 0) return undefined;
+    const res = rows[0];
+    return { ...res, items: JSON.parse(res.items) } as Order;
+  }
+
+  async createOrder(insertOrder: InsertOrder): Promise<Order> {
+    const values = {
+      customerName: insertOrder.customerName,
+      customerEmail: insertOrder.customerEmail,
+      customerPhone: insertOrder.customerPhone,
+      shippingAddress: insertOrder.shippingAddress,
+      shippingCity: insertOrder.shippingCity,
+      shippingPostalCode: insertOrder.shippingPostalCode,
+      shippingCountry: insertOrder.shippingCountry,
+      items: JSON.stringify(insertOrder.items),
+      totalAmount: insertOrder.totalAmount,
+      status: (insertOrder as any).status ?? "pending",
+      isPreOrder: (insertOrder as any).isPreOrder ?? false,
+      paymentStatus: (insertOrder as any).paymentStatus ?? "pending",
+    } as any;
+
+    const inserted = await this.db.insert(orders).values(values).returning().execute();
+    const row = inserted[0];
+    return { ...row, items: JSON.parse(row.items) } as Order;
+  }
+
+  async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
+    const updated = await this.db
+      .update(orders)
+      .set({ status })
+      .where(eq(orders.id, id))
+      .returning()
+      .execute();
+    if (!updated || updated.length === 0) return undefined;
+    const row = updated[0];
+    return { ...row, items: JSON.parse(row.items) } as Order;
+  }
+
+  // Users
+  async createUser(user: InsertUser): Promise<User> {
+    const passwordHash = createHash("sha256").update(user.password).digest("hex");
+    const values = {
+      name: user.name,
+      email: user.email.toLowerCase(),
+      passwordHash,
+      role: user.role ?? "user",
+    } as any;
+    const inserted = await this.db.insert(users).values(values).returning().execute();
+    return inserted[0] as User;
+  }
+
+  async findUserByEmail(email: string): Promise<User | undefined> {
+    const rows = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1)
+      .execute();
+    return rows && rows[0] ? (rows[0] as User) : undefined;
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const rows = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1)
+      .execute();
+    return rows && rows[0] ? (rows[0] as User) : undefined;
+  }
+
+  // Sessions (persisted)
+  async createSession(userId: string): Promise<string> {
+    const sid = randomUUID();
+    await this.db.insert(sessions).values({ id: sid, userId }).execute();
+    return sid;
+  }
+
+  async getUserIdBySession(sessionId: string): Promise<string | undefined> {
+    const rows = await this.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, sessionId))
+      .limit(1)
+      .execute();
+    return rows && rows[0] ? rows[0].userId : undefined;
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.db.delete(sessions).where(eq(sessions.id, sessionId)).execute();
+  }
+}
+
+// Export storage: prefer Postgres when DATABASE_URL provided
+let storageInstance: IStorage;
+
+if (process.env.DATABASE_URL) {
+  try {
+    const db = initDb(process.env.DATABASE_URL);
+    storageInstance = new PostgresStorage(db);
+  } catch (e) {
+    // fallback
+    console.error("Failed to init DB, falling back to MemStorage:", e);
+    storageInstance = new MemStorage();
+  }
+} else {
+  storageInstance = new MemStorage();
+}
+
+export const storage = storageInstance;
