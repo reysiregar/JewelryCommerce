@@ -20,6 +20,12 @@ export function Header() {
   const { me, logout } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const recent = useRecentSearches(8);
+  const isAuthRoute = location.startsWith("/login") || location.startsWith("/register");
+
+  // If navigating to explicit auth pages, ensure modal is closed and disable profile button
+  useEffect(() => {
+    if (isAuthRoute && authOpen) setAuthOpen(false);
+  }, [isAuthRoute, authOpen]);
 
   const navLinks = [
     { path: "/", label: "Home" },
@@ -50,9 +56,9 @@ export function Header() {
   return (
     <>
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 lg:px-8">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4 lg:px-8 lg:grid lg:grid-cols-[1fr_auto_1fr]">
         {/* Logo */}
-        <Link href="/" data-testid="link-home">
+        <Link href="/" data-testid="link-home" className="justify-self-start">
           <h1
             aria-hidden={searchOpen}
             className={`font-serif text-xl font-semibold tracking-tight lg:text-2xl cursor-pointer hover-elevate px-3 py-2 rounded-md transition-all duration-200 ${
@@ -64,7 +70,7 @@ export function Header() {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className={`hidden lg:flex items-center gap-1 transition-all duration-200 ${searchOpen ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"}`}>
+        <nav className={`hidden lg:flex items-center gap-1 justify-self-center transition-all duration-200 ${searchOpen ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"}`}>
           {navLinks.map((link) => (
             <Link key={link.path} href={link.path}>
               <Button
@@ -80,8 +86,8 @@ export function Header() {
           ))}
         </nav>
 
-        {/* Right side icons / Search */}
-        <div className={`flex items-center gap-2 transition-all duration-200 ${searchOpen ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"}`}>
+        {/* Right side icons (mobile: Search + Cart + Menu; desktop adds Theme/Profile) */}
+        <div className={`flex items-center gap-1 sm:gap-2 lg:justify-self-end transition-all duration-200 ${searchOpen ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"}`}>
           {!searchOpen && (
             <Button
               variant="ghost"
@@ -95,8 +101,7 @@ export function Header() {
             </Button>
           )}
 
-          <ThemeToggle />
-          {/* Cart Icon */}
+          {/* Cart Icon (always visible) */}
           <Button
             variant="ghost"
             size="icon"
@@ -118,40 +123,52 @@ export function Header() {
             <span className="sr-only">Shopping cart</span>
           </Button>
 
-          {/* Profile / Auth */}
-          {!me ? (
-            <Button variant="ghost" size="icon" onClick={() => setAuthOpen(true)} aria-label="Login" className="rounded-full">
-              <User className="h-5 w-5" />
-            </Button>
-          ) : (
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Profile" className="rounded-full">
-                  <User className="h-5 w-5" />
-                </Button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content sideOffset={8} className="min-w-[200px] rounded-md border bg-popover p-2 shadow-md focus:outline-none">
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">{me.email}</div>
-                <DropdownMenu.Item asChild>
-                  <Link href="/dashboard" className="focus:outline-none focus:ring-2 focus:ring-ring block px-2 py-1 rounded hover:bg-muted text-sm cursor-pointer">Account</Link>
-                </DropdownMenu.Item>
-                {me.role === "admin" && (
+          {/* Desktop-only: Theme + Cart + Profile */}
+          <div className="hidden lg:flex items-center gap-2">
+            <ThemeToggle />
+
+            {/* Profile / Auth */}
+            {!me ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => { if (!isAuthRoute) setAuthOpen(true); }}
+                aria-label="Login"
+                className="rounded-full"
+                disabled={isAuthRoute}
+              >
+                <User className="h-5 w-5" />
+              </Button>
+            ) : (
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Profile" className="rounded-full">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content sideOffset={8} className="min-w-[200px] rounded-md border bg-popover p-2 shadow-md focus:outline-none">
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">{me.email}</div>
                   <DropdownMenu.Item asChild>
-                    <Link href="/admin" className="focus:outline-none focus:ring-2 focus:ring-ring block px-2 py-1 rounded hover:bg-muted text-sm cursor-pointer">Admin Dashboard</Link>
+                    <Link href="/dashboard" className="focus:outline-none focus:ring-2 focus:ring-ring block px-2 py-1 rounded hover:bg-muted text-sm cursor-pointer">Account</Link>
                   </DropdownMenu.Item>
-                )}
-                <DropdownMenu.Separator className="my-1 h-px bg-border" />
-                <DropdownMenu.Item asChild>
-                  <button
-                    onClick={logout}
-                    className="w-full text-left px-2 py-1 rounded hover:bg-destructive/15 text-sm focus:outline-none focus:ring-2 focus:ring-destructive"
-                  >
-                    Logout
-                  </button>
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          )}
+                  {me.role === "admin" && (
+                    <DropdownMenu.Item asChild>
+                      <Link href="/admin" className="focus:outline-none focus:ring-2 focus:ring-ring block px-2 py-1 rounded hover:bg-muted text-sm cursor-pointer">Admin Dashboard</Link>
+                    </DropdownMenu.Item>
+                  )}
+                  <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                  <DropdownMenu.Item asChild>
+                    <button
+                      onClick={logout}
+                      className="w-full text-left px-2 py-1 rounded hover:bg-destructive/15 text-sm focus:outline-none focus:ring-2 focus:ring-destructive"
+                    >
+                      Logout
+                    </button>
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            )}
+          </div>
 
           {/* (Cart moved into main icon cluster above) */}
 
@@ -163,7 +180,7 @@ export function Header() {
                 <span className="sr-only">Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-64">
+            <SheetContent side="right" className="w-72">
               <nav className="flex flex-col gap-4 mt-8">
                 {navLinks.map((link) => (
                   <Link key={link.path} href={link.path}>
@@ -179,7 +196,45 @@ export function Header() {
                     </Button>
                   </Link>
                 ))}
+
+                {/* Theme toggle, styled like nav items */}
+                <ThemeToggle asListItem />
               </nav>
+
+              <div className="mt-6 space-y-3">
+                {/* Mobile Profile / Auth */}
+                {!me ? (
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      const current = window.location.pathname + window.location.search;
+                      setLocation(`/login?returnTo=${encodeURIComponent(current)}`);
+                    }}
+                  >
+                    Sign in / Register
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="text-xs text-muted-foreground px-1">{me.email}</div>
+                    <Link href="/dashboard">
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => setMobileMenuOpen(false)}>Account</Button>
+                    </Link>
+                    {me.role === "admin" && (
+                      <Link href="/admin">
+                        <Button variant="ghost" className="w-full justify-start" onClick={() => setMobileMenuOpen(false)}>Admin Dashboard</Button>
+                      </Link>
+                    )}
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => { setMobileMenuOpen(false); logout(); }}
+                    >
+                      Logout
+                    </Button>
+                  </div>
+                )}
+              </div>
             </SheetContent>
           </Sheet>
         </div>

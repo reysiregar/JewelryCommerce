@@ -1,6 +1,6 @@
 # JewelCommerce (Lumière Jewelry)
 
-Elegant, full‑stack demo storefront for fine jewelry. React + Vite frontend, Express backend, and Drizzle schema for future Postgres. Ships with in‑memory data by default, cookie‑based sessions, product browsing, cart, checkout with simulated payments, and an admin summary.
+ Elegant, full‑stack demo storefront for fine jewelry. React + Vite frontend, Express backend, and Drizzle schema for future Postgres. Ships with in‑memory data by default, cookie‑based sessions, product browsing, auth‑gated cart/checkout with simulated payments, and an admin summary.
 
 ## Overview
 - Monorepo layout with `client/` (React + Tailwind) and `server/` (Express + Vite middleware in dev)
@@ -16,8 +16,8 @@ Elegant, full‑stack demo storefront for fine jewelry. React + Vite frontend, E
 
 ## Features
 - Product catalog with categories, search, product detail
-- Client‑side cart with size variants, persistent in `localStorage`
-- Checkout flow with Zod‑validated form and simulated payment
+- Client‑side cart with size variants, persistent in `localStorage` (add to cart requires login)
+- Checkout flow with Zod‑validated form and simulated payment (requires login)
 - Auth: register, login, logout, current user (`/api/auth/me`)
 - Admin dashboard summary endpoint
 
@@ -80,16 +80,17 @@ Path aliases (see `vite.config.ts`): `@` -> `client/src`, `@shared` -> `shared`,
   - `/` Home
   - `/products` Product listing (supports `?category=...`)
   - `/product/:id` Product detail
-  - `/checkout` Checkout
+  - `/checkout` Checkout (requires login)
   - `/order-success` Order success
   - `/login`, `/register`
   - `/dashboard` User dashboard
   - `/admin` Admin dashboard
 - State:
-  - Cart: `CartProvider` in `client/src/lib/cart-context.tsx` (localStorage persistence)
-  - Auth: `AuthProvider` in `client/src/lib/auth-context.tsx` (cookie session; `sid`)
+  - Cart: `CartProvider` in `client/src/lib/cart-context.tsx` (localStorage persistence; add‑to‑cart and checkout are auth‑gated)
+  - Auth: `AuthProvider` in `client/src/lib/auth-context.tsx` (cookie session; `sid`) — supports `returnTo` redirect on login/register
   - Data fetching: React Query (`client/src/lib/queryClient.ts`)
 - UI: Tailwind + Radix UI components (`client/src/components/ui/*`)
+  - Toasts are dismissible and auto‑hide quickly to avoid blocking UI
 
 ---
 
@@ -117,7 +118,7 @@ Seeded admin credentials:
 ### Orders
 - `GET /api/orders` → list orders
 - `GET /api/orders/:id` → get order by id
-- `POST /api/orders` → create order (Zod validated, totals in cents)
+- `POST /api/orders` → create order (Zod validated, totals in cents) — requires a logged‑in user (session cookie)
 - `PATCH /api/orders/:id/status` `{ status }` → update status
 
 ### Admin
@@ -175,7 +176,7 @@ This section helps teammates create clear system flowcharts and Data Flow Diagra
 ### System Flowchart (High‑level)
 - Start → User opens web app → Frontend loads via Vite/static
 - User actions: Browse products → Add to cart → Checkout form → Simulated payment → Order created
-- Optional auth: Register/Login to personalize and access admin summary
+- Auth required for: Add to Cart and Checkout. Register/Login also grants access to admin summary (if role = admin).
 
 Mermaid (system request/response flow):
 ```mermaid
@@ -185,7 +186,7 @@ flowchart TD
   A -->|XHR: /api/products| D[(MemStorage Products)]
   A -->|XHR: /api/search| D
   A -->|XHR: /api/auth/*| E[(Users & Sessions)]
-  A -->|POST: /api/orders| F[(Orders Store)]
+  A -->|POST: /api/orders (auth)| F[(Orders Store)]
   A -->|POST: /api/payment/simulate| G{{Payment Simulator}}
   G -->|status| A
 ```
