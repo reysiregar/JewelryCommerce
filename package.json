@@ -9,7 +9,8 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx -r dotenv/config server/seed.ts"
+    "db:seed": "tsx -r dotenv/config server/seed.ts",
+    "db:enable:pgcrypto": "node scripts/enable_pgcrypto.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
