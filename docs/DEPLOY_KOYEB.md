@@ -17,27 +17,36 @@ This is required by the `gen_random_uuid()` defaults in `shared/schema.ts`.
 1. In Koyeb, create a new App → Deploy a Service from your GitHub repo.
 2. Select Buildpacks as the deployment method.
 3. Configure the service:
-   - Build Command:
+   - Build Command (no redundant install; migrations only if DB accessible during build):
      ```zsh
-     npm ci
-     npm run db:push
      npm run build
-     npm run db:seed
      ```
+     If you want schema push + seed during build AND your `DATABASE_URL` is marked as available at build time in Koyeb, use:
+     ```zsh
+     npm run db:push && npm run build && npm run db:seed
+     ```
+     Otherwise keep migrations out of build and run them separately after deploy.
    - Run Command:
      ```zsh
      npm start
      ```
-   - Environment Variables:
+   - Environment Variables (mark as "Available at build time" if using db:push in build):
      - `NODE_ENV=production`
      - `DATABASE_URL=<your_postgres_connection_string>`
-4. Deploy. Koyeb sets `PORT` automatically; the server already uses `process.env.PORT`.
+4. Deploy. Koyeb sets `PORT` automatically; the server uses `process.env.PORT`.
+5. (Optional) Run migrations & seed post‑deploy if not done in build:
+   - One‑off exec in Koyeb or locally then push:
+     ```zsh
+     npm run db:push
+     npm run db:seed
+     ```
 
 ## Notes
-- The app serves the API and built client from the same service, no separate frontend hosting required.
+- The app can serve both API + built client. If you host frontend separately (Vercel), keep only API here.
 - Seeding is idempotent: it skips products if present and only creates the admin user if missing.
-- For Neon/Postgres, ensure `pgcrypto` is enabled once (see SQL above).
-- Static images are bundled from `client/public` and served at root paths like `/<filename>`.
+- Ensure Postgres extension `pgcrypto` enabled once (see SQL above).
+- If you see `drizzle-kit: not found` or DNS `ENOTFOUND` during build, remove migrations from build or mark `DATABASE_URL` build‑available and retry.
+- Static images from `client/public` are bundled to `dist/public` and served at root paths (e.g. `/Rose_gold_diamond_ring_...png`).
 
 ## Optional: Docker deployment
 You can deploy with a Dockerfile instead of Buildpacks. Create a Dockerfile like this and push:

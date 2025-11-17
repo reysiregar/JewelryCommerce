@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "buildCommand": "npm ci && npm run build",
+  "outputDirectory": "dist/public",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://YOUR-KOYEB-SERVICE.koyeb.app/api/$1"
+    }
+  ]
+}
