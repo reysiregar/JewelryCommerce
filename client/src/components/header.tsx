@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { AuthModal } from "@/components/modals/auth-modal";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { Confirm } from "@/components/ui/confirm-dialog";
 import { useQuery } from "@tanstack/react-query";
 
 export function Header() {
@@ -159,14 +160,19 @@ export function Header() {
                     </DropdownMenu.Item>
                   )}
                   <DropdownMenu.Separator className="my-1 h-px bg-border" />
-                  <DropdownMenu.Item asChild>
-                    <button
-                      onClick={logout}
+                  <Confirm
+                    title="Confirm Logout"
+                    description="Are you sure you want to sign out of your account?"
+                    confirmLabel="Logout"
+                    onConfirm={logout}
+                  >
+                    <DropdownMenu.Item
+                      onSelect={(e) => e.preventDefault()}
                       className="w-full text-left px-2 py-1 rounded hover:bg-destructive/15 text-sm focus:outline-none focus:ring-2 focus:ring-destructive"
                     >
                       Logout
-                    </button>
-                  </DropdownMenu.Item>
+                    </DropdownMenu.Item>
+                  </Confirm>
                 </DropdownMenu.Content>
               </DropdownMenu.Root>
             )}
@@ -586,36 +592,13 @@ function useDebounced(value: string, delay: number) {
 }
 
 function useRecentSearches(max: number = 8) {
-  const key = "recent-searches";
-  const read = (): string[] => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return [];
-      const arr = JSON.parse(raw) as string[];
-      if (!Array.isArray(arr)) return [];
-      return arr;
-    } catch {
-      return [];
-    }
-  };
-  const [items, setItems] = useState<string[]>(read);
-
-  const write = (arr: string[]) => {
-    setItems(arr);
-    try {
-      localStorage.setItem(key, JSON.stringify(arr));
-    } catch {}
-  };
-
+  const [items, setItems] = useState<string[]>([]);
   const add = (term: string) => {
     const t = term.trim();
     if (!t) return;
     const lower = t.toLowerCase();
-    const deduped = [t, ...items.filter((x) => x.toLowerCase() !== lower)].slice(0, max);
-    write(deduped);
+    setItems((prev) => [t, ...prev.filter((x) => x.toLowerCase() !== lower)].slice(0, max));
   };
-
-  const clear = () => write([]);
-
+  const clear = () => setItems([]);
   return { items, add, clear };
 }

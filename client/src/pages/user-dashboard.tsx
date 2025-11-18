@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { Confirm } from "@/components/ui/confirm-dialog";
 import { Link } from "wouter";
 
 export default function UserDashboard() {
@@ -34,7 +35,14 @@ export default function UserDashboard() {
         <div className="border rounded-xl p-4 bg-card">
           <h3 className="font-medium mb-2">Actions</h3>
           <div className="flex gap-2">
-            <Button onClick={logout} variant="outline">Logout</Button>
+            <Confirm
+              title="Confirm Logout"
+              description="Are you sure you want to sign out of your account?"
+              confirmLabel="Logout"
+              onConfirm={logout}
+            >
+              <Button variant="outline">Logout</Button>
+            </Confirm>
             {me.role === "admin" && (
               <Link href="/admin"><Button>Admin Dashboard</Button></Link>
             )}

@@ -47,6 +47,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return await storage.getUser(userId);
   };
 
+  const getSessionId = (req: any) => {
+    const cookies = parseCookies(req.headers.cookie);
+    return cookies["sid"];
+  };
+
   // Auth endpoints
   app.get("/api/auth/me", async (req, res) => {
     const user = await getUserFromRequest(req);
@@ -77,9 +82,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { email, password } = req.body as { email?: string; password?: string };
     if (!email || !password) return res.status(400).json({ message: "Email and password required" });
     const user = await storage.findUserByEmail(email);
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    if (!user) return res.status(404).json({ message: "Account not found" });
     const hash = createHash("sha256").update(password).digest("hex");
-    if (user.passwordHash !== hash) return res.status(400).json({ message: "Invalid credentials" });
+    if (user.passwordHash !== hash) return res.status(401).json({ message: "Incorrect password" });
     const sid = await storage.createSession(user.id);
     setSessionCookie(res, sid);
     const { passwordHash, ...safe } = user as any;
@@ -92,6 +97,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (sid) await storage.deleteSession(sid);
     res.setHeader("Set-Cookie", "sid=; Path=/; Max-Age=0; SameSite=Lax");
     res.json({ success: true });
+  });
+
+  // Cart endpoints (require authenticated user; cart persisted per user)
+  app.get("/api/cart", async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    const items = await storage.getCart(user.id);
+    // Hydrate with product data
+    const hydrated = await Promise.all(
+      items.map(async (i) => ({
+        id: i.id,
+        quantity: i.quantity,
+        size: i.size ?? null,
+        product: await storage.getProduct(i.productId),
+      }))
+    );
+    // filter unknown products
+    res.json(hydrated.filter((x) => x.product));
+  });
+
+  app.post("/api/cart", async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    const { productId, size, quantity } = req.body as { productId?: string; size?: string | null; quantity?: number };
+    if (!productId) return res.status(400).json({ message: "productId is required" });
+    const product = await storage.getProduct(productId);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    await storage.addOrIncrementCartItem(user.id, productId, size ?? undefined, quantity ?? 1);
+    const items = await storage.getCart(user.id);
+    const hydrated = await Promise.all(
+      items.map(async (i) => ({ id: i.id, quantity: i.quantity, size: i.size ?? null, product: await storage.getProduct(i.productId) }))
+    );
+    res.status(201).json(hydrated.filter((x) => x.product));
+  });
+
+  app.patch("/api/cart/:id", async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    const { quantity } = req.body as { quantity?: number };
+    if (typeof quantity !== "number") return res.status(400).json({ message: "quantity is required" });
+    await storage.updateCartItemQuantity(user.id, req.params.id, quantity);
+    const items = await storage.getCart(user.id);
+    const hydrated = await Promise.all(
+      items.map(async (i) => ({ id: i.id, quantity: i.quantity, size: i.size ?? null, product: await storage.getProduct(i.productId) }))
+    );
+    res.json(hydrated.filter((x) => x.product));
+  });
+
+  app.delete("/api/cart/:id", async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    await storage.removeCartItem(user.id, req.params.id);
+    const items = await storage.getCart(user.id);
+    const hydrated = await Promise.all(
+      items.map(async (i) => ({ id: i.id, quantity: i.quantity, size: i.size ?? null, product: await storage.getProduct(i.productId) }))
+    );
+    res.json(hydrated.filter((x) => x.product));
+  });
+
+  app.delete("/api/cart", async (req, res) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    await storage.clearCart(user.id);
+    res.json([]);
   });
 
   // Products endpoints

@@ -3,6 +3,7 @@ import type { Product } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { apiRequest } from "./queryClient";
 
 export interface CartItemType {
   product: Product;
@@ -31,23 +32,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { me } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-
-  // Load cart from localStorage on mount
+  // Load cart from server when authenticated; clear when logged out
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart));
-      } catch (e) {
-        console.error("Failed to parse cart from localStorage", e);
+    let cancelled = false;
+    const load = async () => {
+      if (!me) {
+        setItems([]);
+        return;
       }
-    }
-  }, []);
-
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(items));
-  }, [items]);
+      try {
+        const res = await fetch("/api/cart", { credentials: "include" });
+        if (!res.ok) throw new Error("Failed to load cart");
+        const data = (await res.json()) as { id: string; product: Product; quantity: number; size?: string | null }[];
+        if (!cancelled) setItems(data.map((d) => ({ product: d.product, quantity: d.quantity, size: d.size ?? undefined })));
+      } catch {
+        if (!cancelled) setItems([]);
+      }
+    };
+    load();
+    return () => { cancelled = true };
+  }, [me]);
 
   const addToCart = (product: Product, size?: string, quantity: number = 1) => {
     if (!me) {
@@ -61,27 +65,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setLocation(`/login?returnTo=${encodeURIComponent(current)}`);
       return;
     }
-    setItems((prevItems) => {
-      const existingItemIndex = prevItems.findIndex(
-        (item) => item.product.id === product.id && item.size === size
-      );
-
-      if (existingItemIndex > -1) {
-        const newItems = [...prevItems];
-        newItems[existingItemIndex].quantity += quantity;
-        return newItems;
+    // Optimistic update, then sync with server
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.product.id === product.id && i.size === size);
+      if (idx > -1) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantity: next[idx].quantity + quantity };
+        return next;
       }
-
-      return [...prevItems, { product, quantity, size }];
+      return [...prev, { product, quantity, size }];
+    });
+    apiRequest("POST", "/api/cart", { productId: product.id, size, quantity }).catch(() => {
+      // On error, refetch to reconcile
+      fetch("/api/cart", { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : []))
+        .then((data) => setItems(Array.isArray(data) ? data.map((d: any) => ({ product: d.product, quantity: d.quantity, size: d.size ?? undefined })) : []))
+        .catch(() => setItems([]));
     });
   };
 
   const removeFromCart = (productId: string, size?: string) => {
-    setItems((prevItems) =>
-      prevItems.filter(
-        (item) => !(item.product.id === productId && item.size === size)
-      )
-    );
+    // We need server cart item id; since we don't keep it in client state, call server to refetch filtered
+    fetch("/api/cart", { credentials: "include" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("load");
+        const data = await r.json();
+        const match = (data as any[]).find((i) => i.product?.id === productId && (i.size ?? undefined) === (size ?? undefined));
+        if (match) {
+          return apiRequest("DELETE", `/api/cart/${match.id}`).then(async (res) => res.ok);
+        }
+        return true;
+      })
+      .finally(() => {
+        fetch("/api/cart", { credentials: "include" })
+          .then((r) => (r.ok ? r.json() : []))
+          .then((data) => setItems(Array.isArray(data) ? data.map((d: any) => ({ product: d.product, quantity: d.quantity, size: d.size ?? undefined })) : []))
+          .catch(() => setItems([]));
+      });
   };
 
   const updateQuantity = (productId: string, quantity: number, size?: string) => {
@@ -90,17 +110,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setItems((prevItems) =>
-      prevItems.map((item) =>
-        item.product.id === productId && item.size === size
-          ? { ...item, quantity }
-          : item
-      )
-    );
+    // find cart item id on server and update
+    fetch("/api/cart", { credentials: "include" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("load");
+        const data = await r.json();
+        const match = (data as any[]).find((i) => i.product?.id === productId && (i.size ?? undefined) === (size ?? undefined));
+        if (match) {
+          return apiRequest("PATCH", `/api/cart/${match.id}`, { quantity }).then(async () => true);
+        }
+        return true;
+      })
+      .finally(() => {
+        fetch("/api/cart", { credentials: "include" })
+          .then((r) => (r.ok ? r.json() : []))
+          .then((data) => setItems(Array.isArray(data) ? data.map((d: any) => ({ product: d.product, quantity: d.quantity, size: d.size ?? undefined })) : []))
+          .catch(() => setItems([]));
+      });
   };
 
   const clearCart = () => {
     setItems([]);
+    apiRequest("DELETE", "/api/cart").catch(() => {});
   };
 
   const toggleCart = () => {

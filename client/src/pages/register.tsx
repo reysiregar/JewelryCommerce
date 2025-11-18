@@ -22,6 +22,10 @@ export default function Register() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await register(name, email, password);
+    // Clear form on success
+    setName("");
+    setEmail("");
+    setPassword("");
     setLocation(returnTo || "/dashboard");
   };
 

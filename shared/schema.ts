@@ -48,7 +48,7 @@ export const cartItems = pgTable("cart_items", {
   productId: varchar("product_id").notNull(),
   quantity: integer("quantity").notNull().default(1),
   size: text("size"), // selected size if applicable
-  sessionId: text("session_id").notNull(), // for guest carts
+  userId: text("user_id").notNull(), // cart associated to authenticated user
 });
 
 export const insertCartItemSchema = createInsertSchema(cartItems).omit({

@@ -57,7 +57,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setMe(data);
       toast({ title: "Login successful", description: `Welcome back, ${data.name}` });
     } catch (e: any) {
-      toast({ title: "Login failed", description: e.message, variant: "destructive" });
+      // Parse error message for friendly feedback
+      let title = "Login failed";
+      let description = e?.message || "An error occurred";
+      try {
+        const [statusPart, bodyPart] = String(e?.message || "").split(":", 2);
+        const statusCode = parseInt(statusPart.trim(), 10);
+        let serverMsg = "";
+        if (bodyPart) {
+          const trimmed = bodyPart.trim();
+          if (trimmed.startsWith("{")) {
+            const parsed = JSON.parse(trimmed);
+            serverMsg = parsed?.message || "";
+          } else {
+            serverMsg = trimmed;
+          }
+        }
+
+        if (statusCode === 404) {
+          title = "Account not found";
+          description = "Hey this account is not found, let’s register";
+        } else if (statusCode === 401) {
+          title = "Incorrect password";
+          description = "Hey password is incorrect, try again";
+        } else if (serverMsg) {
+          description = serverMsg;
+        }
+      } catch {}
+      toast({ title, description, variant: "destructive" });
       throw e;
     }
   };

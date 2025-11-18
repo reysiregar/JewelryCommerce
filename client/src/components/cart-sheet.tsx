@@ -1,6 +1,5 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Minus, Plus, X, ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { Link, useLocation } from "wouter";
@@ -21,10 +20,16 @@ export function CartSheet() {
 
   return (
     <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
-      <SheetContent className="flex w-full flex-col sm:max-w-lg" aria-describedby="cart-description">
-        <SheetHeader>
+      <SheetContent hideClose className="flex w-full flex-col sm:max-w-lg" aria-describedby="cart-description">
+        <div className="flex items-center justify-between mb-2">
           <SheetTitle className="font-serif text-2xl">Shopping Cart</SheetTitle>
-        </SheetHeader>
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
+              <X className="h-6 w-6" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </SheetClose>
+        </div>
         <p id="cart-description" className="sr-only">
           {items.length === 0 
             ? "Your shopping cart is empty" 

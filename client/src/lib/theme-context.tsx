@@ -10,12 +10,8 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "themePreference";
-
 function getInitialPreference(): ThemePreference {
   if (typeof window === "undefined") return "light";
-  const stored = window.localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
-  if (stored === "light" || stored === "dark" || stored === "system") return stored;
   return "system"; // default to system for better first-load UX
 }
 
@@ -50,13 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  // Persist preference
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, preference);
-    } catch {}
-  }, [preference]);
+  // No persistence: preference is session-only as requested
 
   const activeTheme = useMemo<"light" | "dark">(() => {
     return resolveActive(preference, mqlRef.current);

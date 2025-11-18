@@ -22,6 +22,10 @@ export function AuthModal({ open, onOpenChange }: { open: boolean; onOpenChange:
       } else {
         await register(name, email, password);
       }
+      // Clear fields on success
+      setName("");
+      setEmail("");
+      setPassword("");
       onOpenChange(false);
     } finally {
       setLoading(false);

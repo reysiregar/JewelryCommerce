@@ -47,6 +47,10 @@ Optional: Use PostgreSQL for persistence. Set `DATABASE_URL` and run:
 export DATABASE_URL="postgres://user:pass@host:5432/dbname"
 npm run db:push
 
+# If upgrading from an older version (cart stored by session),
+# migrate cart_items.session_id -> cart_items.user_id first:
+npm run db:migrate:cart-user
+
 # (Optional) seed sample products and an admin user
 npm run db:seed
 ```

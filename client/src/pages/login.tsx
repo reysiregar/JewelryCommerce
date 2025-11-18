@@ -21,6 +21,9 @@ export default function Login() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await login(email, password);
+    // Clear form on success
+    setEmail("");
+    setPassword("");
     setLocation(returnTo || "/dashboard");
   };
 

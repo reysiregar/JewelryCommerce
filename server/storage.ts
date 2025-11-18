@@ -5,6 +5,9 @@ import {
   type InsertOrder,
   type User,
   type InsertUser,
+  type CartItem,
+  type InsertCartItem,
+  cartItems,
   products,
   users,
   orders,
@@ -35,6 +38,13 @@ export interface IStorage {
   createSession(userId: string): Promise<string>; // returns sessionId
   getUserIdBySession(sessionId: string): Promise<string | undefined>;
   deleteSession(sessionId: string): Promise<void>;
+
+  // Cart
+  getCart(userId: string): Promise<CartItem[]>;
+  addOrIncrementCartItem(userId: string, productId: string, size?: string, quantity?: number): Promise<CartItem>;
+  updateCartItemQuantity(userId: string, cartItemId: string, quantity: number): Promise<CartItem | undefined>;
+  removeCartItem(userId: string, cartItemId: string): Promise<void>;
+  clearCart(userId: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -42,12 +52,14 @@ export class MemStorage implements IStorage {
   private orders: Map<string, Order>;
   private users: Map<string, User>;
   private sessions: Map<string, string>; // sid -> userId
+  private carts: Map<string, CartItem[]>; // userId -> cart items
 
   constructor() {
     this.products = new Map();
     this.orders = new Map();
     this.users = new Map();
     this.sessions = new Map();
+    this.carts = new Map();
     this.seedProducts();
     this.seedAdminUser();
   }
@@ -596,6 +608,54 @@ export class MemStorage implements IStorage {
   async deleteSession(sessionId: string): Promise<void> {
     this.sessions.delete(sessionId);
   }
+
+  // Cart (in-memory)
+  async getCart(userId: string): Promise<CartItem[]> {
+    return [...(this.carts.get(userId) ?? [])];
+  }
+
+  async addOrIncrementCartItem(userId: string, productId: string, size?: string, quantity: number = 1): Promise<CartItem> {
+    const list = this.carts.get(userId) ?? [];
+    const existing = list.find((i) => i.productId === productId && i.size === (size ?? null));
+    if (existing) {
+      existing.quantity += quantity;
+      this.carts.set(userId, list);
+      return { ...existing };
+    }
+    const item: CartItem = {
+      // @ts-ignore id provided for mem store
+      id: randomUUID(),
+      productId,
+      quantity: quantity ?? 1,
+      size: size ?? null,
+      userId,
+    } as any;
+    this.carts.set(userId, [...list, item]);
+    return { ...item };
+  }
+
+  async updateCartItemQuantity(userId: string, cartItemId: string, quantity: number): Promise<CartItem | undefined> {
+    const list = this.carts.get(userId) ?? [];
+    const idx = list.findIndex((i) => i.id === cartItemId);
+    if (idx === -1) return undefined;
+    if (quantity <= 0) {
+      list.splice(idx, 1);
+      this.carts.set(userId, list);
+      return undefined;
+    }
+    list[idx] = { ...list[idx], quantity } as CartItem;
+    this.carts.set(userId, list);
+    return { ...list[idx] };
+  }
+
+  async removeCartItem(userId: string, cartItemId: string): Promise<void> {
+    const list = this.carts.get(userId) ?? [];
+    this.carts.set(userId, list.filter((i) => i.id !== cartItemId));
+  }
+
+  async clearCart(userId: string): Promise<void> {
+    this.carts.delete(userId);
+  }
 }
 
 class PostgresStorage implements IStorage {
@@ -753,6 +813,59 @@ class PostgresStorage implements IStorage {
   async deleteSession(sessionId: string): Promise<void> {
     await this.db.delete(sessions).where(eq(sessions.id, sessionId)).execute();
   }
+
+  // Cart (postgres)
+  async getCart(userId: string): Promise<CartItem[]> {
+    const res = await this.db.select().from(cartItems).where(eq(cartItems.userId, userId)).execute();
+    return res as CartItem[];
+  }
+
+  async addOrIncrementCartItem(userId: string, productId: string, size?: string, quantity: number = 1): Promise<CartItem> {
+    // Try to find existing row with same product+size
+    const existing = await this.db
+      .select()
+      .from(cartItems)
+      .where(eq(cartItems.userId, userId))
+      .execute();
+    const match = existing.find((i: CartItem) => i.productId === productId && (i.size ?? null) === (size ?? null));
+    if (match) {
+      const updated = await this.db
+        .update(cartItems)
+        .set({ quantity: match.quantity + (quantity ?? 1) })
+        .where(eq(cartItems.id, match.id))
+        .returning()
+        .execute();
+      return updated[0] as CartItem;
+    }
+    const inserted = await this.db
+      .insert(cartItems)
+      .values({ userId, productId, size: size ?? null, quantity: quantity ?? 1 })
+      .returning()
+      .execute();
+    return inserted[0] as CartItem;
+  }
+
+  async updateCartItemQuantity(userId: string, cartItemId: string, quantity: number): Promise<CartItem | undefined> {
+    if (quantity <= 0) {
+      await this.removeCartItem(userId, cartItemId);
+      return undefined;
+    }
+    const updated = await this.db
+      .update(cartItems)
+      .set({ quantity })
+      .where(eq(cartItems.id, cartItemId))
+      .returning()
+      .execute();
+    return updated && updated[0] ? (updated[0] as CartItem) : undefined;
+  }
+
+  async removeCartItem(_userId: string, cartItemId: string): Promise<void> {
+    await this.db.delete(cartItems).where(eq(cartItems.id, cartItemId)).execute();
+  }
+
+  async clearCart(userId: string): Promise<void> {
+    await this.db.delete(cartItems).where(eq(cartItems.userId, userId)).execute();
+  }
 }
 
 // Export storage: prefer Postgres when DATABASE_URL provided
@@ -762,13 +875,16 @@ if (process.env.DATABASE_URL) {
   try {
     const db = initDb(process.env.DATABASE_URL);
     storageInstance = new PostgresStorage(db);
+    console.log("[storage] Using PostgresStorage (DATABASE_URL detected)");
   } catch (e) {
     // fallback
     console.error("Failed to init DB, falling back to MemStorage:", e);
     storageInstance = new MemStorage();
+    console.warn("[storage] Falling back to in-memory storage. Registrations will NOT persist to DB.");
   }
 } else {
   storageInstance = new MemStorage();
+  console.warn("[storage] DATABASE_URL not set. Using in-memory storage; data will not persist to DB.");
 }
 
 export const storage = storageInstance;
