@@ -11,6 +11,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // and from the built "public" directory in production (see server/vite.ts).
 
   // Util: parse cookies
+  const normalizeAssetUrl = (url?: string) => {
+    if (!url) return url as any;
+    let u = url.replace(/^\/?assets\/generated_images\//, "/");
+    if (!u.startsWith("/")) u = `/${u}`;
+    return u;
+  };
+
+  const normalizeProduct = (p: any) => ({
+    ...p,
+    imageUrl: normalizeAssetUrl(p.imageUrl),
+    images: Array.isArray(p.images) ? p.images.map((x: string) => normalizeAssetUrl(x)) : p.images,
+  });
   const parseCookies = (cookieHeader?: string) => {
     const out: Record<string, string> = {};
     if (!cookieHeader) return out;
@@ -86,7 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getProducts();
-      res.json(products);
+      res.json(products.map(normalizeProduct));
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching products", error: error.message });
     }
@@ -133,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter((x) => x.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, 8)
-        .map((x) => x.p);
+        .map((x) => normalizeProduct(x.p));
 
       res.json(scored);
     } catch (error: any) {
@@ -147,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
-      res.json(product);
+      res.json(normalizeProduct(product));
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching product", error: error.message });
     }
