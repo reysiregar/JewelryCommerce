@@ -5,6 +5,7 @@ import { insertProductSchema, insertOrderSchema, insertUserSchema } from "@share
 import { z } from "zod";
 import { createHash } from "crypto";
 import path from "path";
+import { signToken, verifyToken, hashPassword } from "./jwt";
 
 // Rate limiting for account deletion attempts (in-memory)
 const deleteAttempts: Map<string, { count: number; lockedUntil?: number }> = new Map();
@@ -38,23 +39,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return out;
   };
 
-  const setSessionCookie = (res: any, sid: string) => {
-    const cookie = `sid=${encodeURIComponent(sid)}; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+  const setSessionCookie = (res: any, token: string) => {
+    // Session cookie: no Max-Age means it expires when browser closes
+    const cookie = `token=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax`;
     res.setHeader("Set-Cookie", cookie);
   };
 
   const getUserFromRequest = async (req: any) => {
     const cookies = parseCookies(req.headers.cookie);
-    const sid = cookies["sid"];
-    if (!sid) return undefined;
-    const userId = await storage.getUserIdBySession(sid);
-    if (!userId) return undefined;
-    return await storage.getUser(userId);
+    const token = cookies["token"];
+    if (!token) return undefined;
+    const payload = verifyToken(token);
+    if (!payload) return undefined;
+    return await storage.getUser(payload.userId);
   };
 
-  const getSessionId = (req: any) => {
+  const getSessionToken = (req: any) => {
     const cookies = parseCookies(req.headers.cookie);
-    return cookies["sid"];
+    return cookies["token"];
   };
 
   // Auth endpoints
@@ -83,8 +85,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email already registered" });
       }
       const user = await storage.createUser(parsed as any);
-      const sid = await storage.createSession(user.id);
-      setSessionCookie(res, sid);
+      const token = signToken(user.id);
+      setSessionCookie(res, token);
       const { passwordHash, ...safe } = user as any;
       res.status(201).json(safe);
     } catch (error: any) {
@@ -98,19 +100,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!email || !password) return res.status(400).json({ message: "Email and password required" });
     const user = await storage.findUserByEmail(email);
     if (!user) return res.status(404).json({ message: "Account not found" });
-    const hash = createHash("sha256").update(password).digest("hex");
+    const hash = hashPassword(password);
     if (user.passwordHash !== hash) return res.status(401).json({ message: "Incorrect password" });
-    const sid = await storage.createSession(user.id);
-    setSessionCookie(res, sid);
+    const token = signToken(user.id);
+    setSessionCookie(res, token);
     const { passwordHash, ...safe } = user as any;
     res.json(safe);
   });
 
   app.post("/api/auth/logout", async (req, res) => {
-    const cookies = parseCookies(req.headers.cookie);
-    const sid = cookies["sid"];
-    if (sid) await storage.deleteSession(sid);
-    res.setHeader("Set-Cookie", "sid=; Path=/; Max-Age=0; SameSite=Lax");
+    // With JWT, we just clear the cookie - no database cleanup needed
+    res.setHeader("Set-Cookie", "token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax");
     res.json({ success: true });
   });
 
@@ -333,8 +333,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await getUserFromRequest(req);
       if (!user) return res.status(401).json({ message: "Unauthorized" });
-      const validated = insertOrderSchema.parse(req.body);
-      const order = await storage.createOrder(validated);
+      
+      // Expect items array in the request body along with customer/shipping details
+      const { items, ...orderData } = req.body;
+      
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Order must contain at least one item" });
+      }
+      
+      // Validate order data (without items field)
+      const validated = insertOrderSchema.parse(orderData);
+      
+      // Prepare order items (snapshot product data)
+      const orderItemsData = items.map((item: any) => ({
+        productId: item.productId,
+        productName: item.name || item.productName,
+        productPrice: item.price || item.productPrice,
+        quantity: item.quantity || 1,
+        size: item.size || null,
+      }));
+      
+      const order = await storage.createOrder(validated, user.id, orderItemsData);
       res.status(201).json(order);
     } catch (error: any) {
       res.status(400).json({ message: "Invalid order data", error: error.message });
@@ -464,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!password) return res.status(400).json({ message: "Password is required" });
       if (confirm !== "DELETE") return res.status(400).json({ message: "Confirmation text mismatch" });
 
-      const hash = createHash("sha256").update(password).digest("hex");
+      const hash = hashPassword(password);
       if ((user as any).passwordHash !== hash) {
         const prev = attempt?.count ?? 0;
         const next = prev + 1;
@@ -480,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (attempt) deleteAttempts.delete(user.id);
 
       await storage.deleteUser(user.id);
-      res.setHeader("Set-Cookie", "sid=; Path=/; Max-Age=0; SameSite=Lax");
+      res.setHeader("Set-Cookie", "token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax");
       res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ message: "Failed to delete account", error: e.message });

@@ -35,7 +35,10 @@ export const products = pgTable("products", {
   inStock: boolean("in_stock").notNull().default(true),
   sizes: text("sizes").array(), // available sizes for rings/bracelets
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  categoryIdx: sql`CREATE INDEX IF NOT EXISTS products_category_idx ON ${table} (category)`,
+  inStockIdx: sql`CREATE INDEX IF NOT EXISTS products_in_stock_idx ON ${table} (in_stock)`,
+}));
 
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
@@ -47,11 +50,14 @@ export type Product = typeof products.$inferSelect;
 
 export const cartItems = pgTable("cart_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productId: varchar("product_id").notNull(),
+  productId: varchar("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   quantity: integer("quantity").notNull().default(1),
   size: text("size"), // selected size if applicable
-  userId: text("user_id").notNull(), // cart associated to authenticated user
-});
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+}, (table) => ({
+  userIdIdx: sql`CREATE INDEX IF NOT EXISTS cart_items_user_id_idx ON ${table} (user_id)`,
+  productIdIdx: sql`CREATE INDEX IF NOT EXISTS cart_items_product_id_idx ON ${table} (product_id)`,
+}));
 
 export const insertCartItemSchema = createInsertSchema(cartItems).omit({
   id: true,
@@ -62,6 +68,7 @@ export type CartItem = typeof cartItems.$inferSelect;
 
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email").notNull(),
   customerPhone: text("customer_phone").notNull(),
@@ -69,19 +76,37 @@ export const orders = pgTable("orders", {
   shippingCity: text("shipping_city").notNull(),
   shippingPostalCode: text("shipping_postal_code").notNull(),
   shippingCountry: text("shipping_country").notNull(),
-  items: text("items").notNull(), // JSON stringified array of order items
   totalAmount: integer("total_amount").notNull(), // in cents
   status: text("status").notNull().default("pending"), // "pending", "processing", "completed"
   isPreOrder: boolean("is_pre_order").notNull().default(false),
   paymentStatus: text("payment_status").notNull().default("pending"), // "pending", "paid", "failed"
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  userIdIdx: sql`CREATE INDEX IF NOT EXISTS orders_user_id_idx ON ${table} (user_id)`,
+  createdAtIdx: sql`CREATE INDEX IF NOT EXISTS orders_created_at_idx ON ${table} (created_at)`,
+  statusIdx: sql`CREATE INDEX IF NOT EXISTS orders_status_idx ON ${table} (status)`,
+}));
+
+export const orderItems = pgTable("order_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  productId: varchar("product_id").notNull().references(() => products.id),
+  productName: text("product_name").notNull(), // snapshot at time of order
+  productPrice: integer("product_price").notNull(), // price in cents at time of order
+  quantity: integer("quantity").notNull().default(1),
+  size: text("size"), // selected size if applicable
+}, (table) => ({
+  orderIdIdx: sql`CREATE INDEX IF NOT EXISTS order_items_order_id_idx ON ${table} (order_id)`,
+  productIdIdx: sql`CREATE INDEX IF NOT EXISTS order_items_product_id_idx ON ${table} (product_id)`,
+}));
 
 export const sessions = pgTable("sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  userIdIdx: sql`CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON ${table} (user_id)`,
+}));
 
 export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true });
 export type InsertSession = z.infer<typeof insertSessionSchema>;
@@ -96,5 +121,11 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   shippingPostalCode: z.string().min(5, "Postal code must be at least 5 characters"),
 });
 
+export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
+  id: true,
+});
+
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
+export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+export type OrderItem = typeof orderItems.$inferSelect;

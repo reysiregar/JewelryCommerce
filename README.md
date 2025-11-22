@@ -51,6 +51,12 @@ npm run db:push
 npm run db:seed
 ```
 
+For production: Set `JWT_SECRET` environment variable for secure JWT token signing:
+
+```zsh
+export JWT_SECRET="your-secure-random-secret-key"
+```
+
 Notes:
 - By default the app uses in‑memory storage; when `DATABASE_URL` is present it automatically uses PostgreSQL.
 - Static product images now live in `client/public` and are served from the web root, e.g. `/Rose_gold_diamond_ring_406b3b84.png`.
@@ -133,7 +139,7 @@ Seeded admin credentials (also seeded into Postgres when using `npm run db:seed`
 ### Payment (Simulated)
 - `POST /api/payment/simulate` `{ amount, orderId }` → 95% success, latency ~1.5s
 
-Sessions: HTTP‑only `sid` cookie (`SameSite=Lax`, path `/`). When `DATABASE_URL` is set, sessions are stored in the `sessions` table (Postgres). Otherwise, sessions are stored in an in‑memory map `sid -> userId`.
+Sessions: HTTP‑only JWT token cookie (`token`, `SameSite=Lax`, path `/`). Session cookies expire when the browser is closed (auto logout). Set `JWT_SECRET` environment variable in production for secure token signing.
 
 Static assets: files in `client/public` are served from the root path (`/`).
 
@@ -145,63 +151,101 @@ TypeScript types and Zod insert schemas are defined and used with Postgres when 
 - User: `{ id, name, email, passwordHash, role, createdAt }`
   - Insert: `{ name, email, role? } & { password }`
 - Product: `{ id, name, description, price (cents), category, imageUrl, images[], material, isPreOrder, inStock, sizes?[] }`
-- Order: `{ id, customerName, customerEmail, customerPhone, shippingAddress, shippingCity, shippingPostalCode, shippingCountry, items (JSON string), totalAmount (cents), status, isPreOrder, paymentStatus, createdAt }`
-- Session: `{ id (sid), userId, createdAt }`; persisted in Postgres when configured, otherwise stored in memory
+  - Foreign Keys: None
+  - Indexes: `category`, `inStock`
+- Order: `{ id, userId, customerName, customerEmail, customerPhone, shippingAddress, shippingCity, shippingPostalCode, shippingCountry, totalAmount (cents), status, isPreOrder, paymentStatus, createdAt }`
+  - Foreign Keys: `userId -> users.id` (cascade delete)
+  - Indexes: `userId`, `createdAt`, `status`
+- OrderItem: `{ id, orderId, productId, productName, productPrice (cents), quantity, size }`
+  - Foreign Keys: `orderId -> orders.id` (cascade delete), `productId -> products.id`
+  - Indexes: `orderId`, `productId`
+  - Note: Product name and price are snapshotted at time of order
+- CartItem: `{ id, productId, quantity, size, userId }`
+  - Foreign Keys: `productId -> products.id` (cascade delete), `userId -> users.id` (cascade delete)
+  - Indexes: `userId`, `productId`
+- Session: `{ id (sid), userId, createdAt }` (persisted in Postgres when configured; JWT tokens used for authentication)
+  - Foreign Keys: `userId -> users.id` (cascade delete)
+  - Indexes: `userId`
 
 Currency: All monetary values are stored in IDR cents. Format on the client via `Intl.NumberFormat("id-ID")`.
+
+**Authentication**: Sessions use JWT tokens (HttpOnly cookie named `token`) with encrypted payloads. Set `JWT_SECRET` environment variable for production. Session cookies expire when browser closes (users must login on each visit).
 
 ---
 
 ## ERD Cheat Sheet (for ERD Owners)
-The implementation supports both in‑memory and Postgres stores. Relationships are mostly logical (no FKs yet). Use this as guidance when drawing an ERD.
+The implementation uses a normalized schema with foreign keys and indexes. Relationships are enforced via Drizzle ORM.
 
 Mermaid (conceptual):
 ```mermaid
 erDiagram
   USER ||--o{ ORDER : places
-  ORDER }o--o{ PRODUCT : contains
+  USER ||--o{ CART_ITEM : has
   USER ||--o{ SESSION : has
+  ORDER ||--o{ ORDER_ITEM : contains
+  PRODUCT ||--o{ ORDER_ITEM : "ordered as"
+  PRODUCT ||--o{ CART_ITEM : "in cart"
 
   USER {
-    string id
+    string id PK
     string name
     string email
+    string passwordHash
     string role
     date createdAt
   }
   PRODUCT {
-    string id
+    string id PK
     string name
     string description
     int price_cents
-    string category
+    string category "idx"
     string material
-    bool inStock
+    bool inStock "idx"
   }
   ORDER {
-    string id
+    string id PK
+    string userId FK "idx, cascade"
     string customerName
     string customerEmail
     string shippingAddress
     string shippingCity
     string shippingPostalCode
     string shippingCountry
-    json items
     int totalAmount_cents
-    string status
+    string status "idx"
     string paymentStatus
-    date createdAt
+    date createdAt "idx"
+  }
+  ORDER_ITEM {
+    string id PK
+    string orderId FK "idx, cascade"
+    string productId FK "idx"
+    string productName
+    int productPrice_cents
+    int quantity
+    string size
+  }
+  CART_ITEM {
+    string id PK
+    string productId FK "idx, cascade"
+    string userId FK "idx, cascade"
+    int quantity
+    string size
   }
   SESSION {
-    string sid
-    string userId
+    string sid PK
+    string userId FK "idx, cascade"
+    date createdAt
   }
 ```
 
 Notes for ERD:
-- Orders currently embed `items` as JSON; there is no `order_items` table. When normalizing, introduce `ORDER_ITEM` with FK(`order_id`) and FK(`product_id`).
-- Sessions can be persisted (when using Postgres) via `sessions` and relate to `USER`.
-- A `cart_items` schema exists for future use but is not wired in the current app flow.
+- Orders are now normalized with a separate `order_items` table linked via foreign keys
+- Product name and price are snapshotted in `order_items` at time of purchase
+- All foreign keys include appropriate cascade delete behavior
+- Indexes are created on commonly queried fields (category, status, user relationships, etc.)
+- Sessions table exists but JWT tokens are used for authentication (table kept for potential future audit trail)
 
 ## API Examples
 ```zsh
@@ -327,9 +371,11 @@ flowchart TB
 
 ### Data Dictionary (for DFD)
 - Product: `id, name, description, price_cents, category, imageUrl, images[], material, isPreOrder, inStock, sizes?[]`
-- Order: `id, customerName, customerEmail, customerPhone, shippingAddress, shippingCity, shippingPostalCode, shippingCountry, items(JSON), totalAmount_cents, status, isPreOrder, paymentStatus, createdAt`
+- Order: `id, userId, customerName, customerEmail, customerPhone, shippingAddress, shippingCity, shippingPostalCode, shippingCountry, totalAmount_cents, status, isPreOrder, paymentStatus, createdAt`
+- OrderItem: `id, orderId, productId, productName, productPrice_cents, quantity, size` (normalized order line items)
 - User: `id, name, email, passwordHash, role, createdAt`
-- Session: `sid, userId, createdAt` (persisted in DB when configured)
+- Session: `sid, userId, createdAt` (table exists but JWT tokens used for auth)
+- CartItem: `id, productId, userId, quantity, size` (persistent cart linked to user)
 
 ### Diagramming Tips
 - Keep context diagram to 2 external entities and 4 data stores
@@ -344,6 +390,8 @@ flowchart TB
 - Images were migrated to `client/public` and are served directly at `/<filename>`
 - Validation: Zod schemas from `shared/schema.ts` used server‑side and for form schemas client‑side
 - Error handling: server returns JSON `{ message, ... }` with appropriate status codes
+- Schema: Normalized with foreign keys and indexes; `order_items` table links orders to products
+- Auth: JWT tokens (HttpOnly session cookie) that expire on browser close; users must login each visit; set `JWT_SECRET` in production
 
 ## Deployment
 - Build via `npm run build` → outputs `dist/` with `dist/public` for client and bundled server entry
@@ -351,10 +399,7 @@ flowchart TB
 - `PORT` env var can override the default `5173`
 
 ## Roadmap (Optional)
-- Normalize schema: add `order_items`, FKs, indexes
-- JWT or encrypted cookie sessions
 - Payment gateway integration
-- E2E tests (Playwright) and API tests
 
 ---
 

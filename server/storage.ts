@@ -7,15 +7,19 @@ import {
   type InsertUser,
   type CartItem,
   type InsertCartItem,
+  type OrderItem,
+  type InsertOrderItem,
   cartItems,
   products,
   users,
   orders,
+  orderItems,
   sessions,
 } from "@shared/schema";
-import { createHash, randomUUID } from "crypto";
+import { randomUUID } from "crypto";
 import { initDb, getDb } from "./db";
 import { eq, sql } from "drizzle-orm";
+import { hashPassword } from "./jwt";
 
 export interface IStorage {
   // Products
@@ -26,9 +30,9 @@ export interface IStorage {
   deleteProduct(id: string): Promise<void>;
 
   // Orders
-  getOrders(): Promise<Order[]>;
-  getOrder(id: string): Promise<Order | undefined>;
-  createOrder(order: InsertOrder): Promise<Order>;
+  getOrders(): Promise<(Order & { items: OrderItem[] })[]>;
+  getOrder(id: string): Promise<(Order & { items: OrderItem[] }) | undefined>;
+  createOrder(order: InsertOrder, userId: string, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order & { items: OrderItem[] }>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
 
   // Users
@@ -55,6 +59,7 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private products: Map<string, Product>;
   private orders: Map<string, Order>;
+  private orderItems: Map<string, OrderItem[]>; // orderId -> items
   private users: Map<string, User>;
   private sessions: Map<string, string>; // sid -> userId
   private carts: Map<string, CartItem[]>; // userId -> cart items
@@ -62,6 +67,7 @@ export class MemStorage implements IStorage {
   constructor() {
     this.products = new Map();
     this.orders = new Map();
+    this.orderItems = new Map();
     this.users = new Map();
     this.sessions = new Map();
     this.carts = new Map();
@@ -71,7 +77,8 @@ export class MemStorage implements IStorage {
 
   private seedProducts() {
     const rand01 = (key: string) => {
-      const hex = createHash("sha256").update(key).digest("hex").slice(0, 8);
+      const crypto = require("crypto");
+      const hex = crypto.createHash("sha256").update(key).digest("hex").slice(0, 8);
       const n = parseInt(hex, 16);
       return (n >>> 0) / 0xffffffff;
     };
@@ -492,7 +499,7 @@ export class MemStorage implements IStorage {
       id,
       name: "Administrator",
       email: "admin@lumiere.test",
-      passwordHash: createHash("sha256").update("admin123").digest("hex"),
+      passwordHash: hashPassword("admin123"),
       role: "admin",
       // @ts-ignore createdAt not used in mem
       createdAt: new Date(),
@@ -546,18 +553,27 @@ export class MemStorage implements IStorage {
   }
 
   // Orders
-  async getOrders(): Promise<Order[]> {
-    return Array.from(this.orders.values());
+  async getOrders(): Promise<(Order & { items: OrderItem[] })[]> {
+    return Array.from(this.orders.values()).map((order) => ({
+      ...order,
+      items: this.orderItems.get(order.id) || [],
+    }));
   }
 
-  async getOrder(id: string): Promise<Order | undefined> {
-    return this.orders.get(id);
+  async getOrder(id: string): Promise<(Order & { items: OrderItem[] }) | undefined> {
+    const order = this.orders.get(id);
+    if (!order) return undefined;
+    return {
+      ...order,
+      items: this.orderItems.get(id) || [],
+    };
   }
 
-  async createOrder(insertOrder: InsertOrder): Promise<Order> {
+  async createOrder(insertOrder: InsertOrder, userId: string, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order & { items: OrderItem[] }> {
     const id = randomUUID();
     const order: Order = {
       id,
+      userId,
       customerName: insertOrder.customerName,
       customerEmail: insertOrder.customerEmail,
       customerPhone: insertOrder.customerPhone,
@@ -565,7 +581,6 @@ export class MemStorage implements IStorage {
       shippingCity: insertOrder.shippingCity,
       shippingPostalCode: insertOrder.shippingPostalCode,
       shippingCountry: insertOrder.shippingCountry,
-      items: insertOrder.items,
       totalAmount: insertOrder.totalAmount,
       status: (insertOrder as any).status ?? "pending",
       isPreOrder: (insertOrder as any).isPreOrder ?? false,
@@ -573,7 +588,19 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
     };
     this.orders.set(id, order);
-    return order;
+
+    const orderItemsList: OrderItem[] = items.map((item) => ({
+      id: randomUUID(),
+      orderId: id,
+      productId: item.productId,
+      productName: item.productName,
+      productPrice: item.productPrice,
+      quantity: item.quantity,
+      size: item.size ?? null,
+    }));
+    this.orderItems.set(id, orderItemsList);
+
+    return { ...order, items: orderItemsList };
   }
 
   async updateOrderStatus(
@@ -595,7 +622,7 @@ export class MemStorage implements IStorage {
       id,
       name: user.name,
       email: user.email.toLowerCase(),
-      passwordHash: createHash("sha256").update(user.password).digest("hex"),
+      passwordHash: hashPassword(user.password),
       role: user.role ?? "user",
       // @ts-ignore
       createdAt: new Date(),
@@ -769,12 +796,23 @@ class PostgresStorage implements IStorage {
   }
 
   // Orders
-  async getOrders(): Promise<Order[]> {
-    const res = await this.db.select().from(orders).execute();
-    return res.map((r: any) => ({ ...r, items: JSON.parse(r.items) }));
+  async getOrders(): Promise<(Order & { items: OrderItem[] })[]> {
+    const orderRows = await this.db.select().from(orders).execute();
+    const result: (Order & { items: OrderItem[] })[] = [];
+    
+    for (const order of orderRows) {
+      const items = await this.db
+        .select()
+        .from(orderItems)
+        .where(eq(orderItems.orderId, order.id))
+        .execute();
+      result.push({ ...order, items: items as OrderItem[] });
+    }
+    
+    return result;
   }
 
-  async getOrder(id: string): Promise<Order | undefined> {
+  async getOrder(id: string): Promise<(Order & { items: OrderItem[] }) | undefined> {
     const rows = await this.db
       .select()
       .from(orders)
@@ -782,12 +820,20 @@ class PostgresStorage implements IStorage {
       .limit(1)
       .execute();
     if (!rows || rows.length === 0) return undefined;
-    const res = rows[0];
-    return { ...res, items: JSON.parse(res.items) } as Order;
+    
+    const order = rows[0];
+    const items = await this.db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, id))
+      .execute();
+    
+    return { ...order, items: items as OrderItem[] };
   }
 
-  async createOrder(insertOrder: InsertOrder): Promise<Order> {
+  async createOrder(insertOrder: InsertOrder, userId: string, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order & { items: OrderItem[] }> {
     const values = {
+      userId,
       customerName: insertOrder.customerName,
       customerEmail: insertOrder.customerEmail,
       customerPhone: insertOrder.customerPhone,
@@ -795,7 +841,6 @@ class PostgresStorage implements IStorage {
       shippingCity: insertOrder.shippingCity,
       shippingPostalCode: insertOrder.shippingPostalCode,
       shippingCountry: insertOrder.shippingCountry,
-      items: JSON.stringify(insertOrder.items),
       totalAmount: insertOrder.totalAmount,
       status: (insertOrder as any).status ?? "pending",
       isPreOrder: (insertOrder as any).isPreOrder ?? false,
@@ -803,8 +848,25 @@ class PostgresStorage implements IStorage {
     } as any;
 
     const inserted = await this.db.insert(orders).values(values).returning().execute();
-    const row = inserted[0];
-    return { ...row, items: JSON.parse(row.items) } as Order;
+    const order = inserted[0] as Order;
+
+    // Insert order items
+    const itemsToInsert = items.map((item) => ({
+      orderId: order.id,
+      productId: item.productId,
+      productName: item.productName,
+      productPrice: item.productPrice,
+      quantity: item.quantity,
+      size: item.size ?? null,
+    }));
+
+    const insertedItems = await this.db
+      .insert(orderItems)
+      .values(itemsToInsert)
+      .returning()
+      .execute();
+
+    return { ...order, items: insertedItems as OrderItem[] };
   }
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
@@ -821,7 +883,7 @@ class PostgresStorage implements IStorage {
 
   // Users
   async createUser(user: InsertUser): Promise<User> {
-    const passwordHash = createHash("sha256").update(user.password).digest("hex");
+    const passwordHash = hashPassword(user.password);
     const values = {
       name: user.name,
       email: user.email.toLowerCase(),

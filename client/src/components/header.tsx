@@ -40,9 +40,17 @@ export function Header() {
     const q = searchQuery.trim();
     if (q.length === 0) return;
     recent.add(q);
+    setSearchQuery(""); // Clear search input
     setSearchOpen(false);
     setLocation(`/products?q=${encodeURIComponent(q)}`);
   };
+
+  // Clear search query when closing search modal
+  useEffect(() => {
+    if (!searchOpen) {
+      setSearchQuery("");
+    }
+  }, [searchOpen]);
 
   // Close search on Escape, clear query if empty
   useEffect(() => {
@@ -595,13 +603,45 @@ function useDebounced(value: string, delay: number) {
 }
 
 function useRecentSearches(max: number = 8) {
-  const [items, setItems] = useState<string[]>([]);
+  const STORAGE_KEY = "lumiere-recent-searches";
+  
+  // Load initial state from localStorage
+  const [items, setItems] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed.slice(0, max) : [];
+      }
+    } catch (e) {
+      console.warn("Failed to load recent searches:", e);
+    }
+    return [];
+  });
+
+  // Save to localStorage whenever items change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      console.log("Recent searches saved:", items); // Debug log
+    } catch (e) {
+      console.warn("Failed to save recent searches:", e);
+    }
+  }, [items]);
+
   const add = (term: string) => {
     const t = term.trim();
     if (!t) return;
+    console.log("Adding search term:", t); // Debug log
     const lower = t.toLowerCase();
-    setItems((prev) => [t, ...prev.filter((x) => x.toLowerCase() !== lower)].slice(0, max));
+    setItems((prev) => {
+      const updated = [t, ...prev.filter((x) => x.toLowerCase() !== lower)].slice(0, max);
+      console.log("Updated recent searches:", updated); // Debug log
+      return updated;
+    });
   };
+  
   const clear = () => setItems([]);
+  
   return { items, add, clear };
 }

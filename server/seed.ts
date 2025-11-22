@@ -3,7 +3,7 @@ import { initDb } from './db';
 import { products as productsTable, users as usersTable } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { MemStorage } from './storage';
-import { createHash } from 'crypto';
+import { hashPassword } from './jwt';
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -47,7 +47,7 @@ async function main() {
   const adminEmail = 'admin@lumiere.test';
   const adminRows = await db.select().from(usersTable).where(eq(usersTable.email, adminEmail)).limit(1).execute();
   if (!adminRows || adminRows.length === 0) {
-    const passwordHash = createHash('sha256').update('admin123').digest('hex');
+    const passwordHash = hashPassword('admin123');
     await db.insert(usersTable).values({
       name: 'Administrator',
       email: adminEmail,
