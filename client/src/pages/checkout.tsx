@@ -134,8 +134,10 @@ export default function Checkout() {
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
+    const { userId, ...orderData } = data as any;
+    
     const orderPayload = {
-      ...data,
+      ...orderData,
       totalAmount: finalTotal,
       isPreOrder: items.some((item) => item.product.isPreOrder),
       paymentStatus: "paid" as const,
