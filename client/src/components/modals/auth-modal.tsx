@@ -18,7 +18,6 @@ export function AuthModal({ open, onOpenChange }: { open: boolean; onOpenChange:
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic client-side validation (especially for register)
     if (mode === "register") {
       const emailOk = /.+@.+\..+/.test(email);
       if (!name.trim() || !emailOk || password.length < 6) {
@@ -42,7 +41,6 @@ export function AuthModal({ open, onOpenChange }: { open: boolean; onOpenChange:
       } else {
         await register(name, email, password);
       }
-      // Clear fields on success
       setName("");
       setEmail("");
       setPassword("");

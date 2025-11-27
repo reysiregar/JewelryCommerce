@@ -1,15 +1,12 @@
 import jwt from "jsonwebtoken";
 import { createHash, randomBytes } from "crypto";
 
-// Generate a secure JWT secret from environment or create one at runtime
-// In production, always use a strong JWT_SECRET environment variable
 const JWT_SECRET = process.env.JWT_SECRET || (() => {
   console.warn("[jwt] JWT_SECRET not set. Generating random secret (sessions will not persist across restarts).");
   return randomBytes(32).toString("hex");
 })();
 
-// Session expires when browser closes (no expiration in JWT, cookie is session-only)
-const JWT_EXPIRES_IN = "12h"; // Fallback max session duration
+const JWT_EXPIRES_IN = "12h";
 
 export interface SessionPayload {
   userId: string;
@@ -34,7 +31,6 @@ export function verifyToken(token: string): SessionPayload | undefined {
     const decoded = jwt.verify(token, JWT_SECRET) as SessionPayload;
     return decoded;
   } catch (error) {
-    // Token invalid or expired
     return undefined;
   }
 }

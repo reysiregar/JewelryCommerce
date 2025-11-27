@@ -32,7 +32,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { me } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  // Load cart from server when authenticated; clear when logged out
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -65,7 +64,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setLocation(`/login?returnTo=${encodeURIComponent(current)}`);
       return;
     }
-    // Optimistic update, then sync with server
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.product.id === product.id && i.size === size);
       if (idx > -1) {
@@ -76,7 +74,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return [...prev, { product, quantity, size }];
     });
     apiRequest("POST", "/api/cart", { productId: product.id, size, quantity }).catch(() => {
-      // On error, refetch to reconcile
       fetch("/api/cart", { credentials: "include" })
         .then((r) => (r.ok ? r.json() : []))
         .then((data) => setItems(Array.isArray(data) ? data.map((d: any) => ({ product: d.product, quantity: d.quantity, size: d.size ?? undefined })) : []))
@@ -85,7 +82,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const removeFromCart = (productId: string, size?: string) => {
-    // We need server cart item id; since we don't keep it in client state, call server to refetch filtered
     fetch("/api/cart", { credentials: "include" })
       .then(async (r) => {
         if (!r.ok) throw new Error("load");
@@ -110,7 +106,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // find cart item id on server and update
     fetch("/api/cart", { credentials: "include" })
       .then(async (r) => {
         if (!r.ok) throw new Error("load");

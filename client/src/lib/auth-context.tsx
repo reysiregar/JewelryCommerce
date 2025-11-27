@@ -29,7 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = async () => {
     try {
-      // Skip request if no session cookie to avoid 401 noise
       const hasSid = typeof document !== "undefined" && document.cookie.includes("sid=");
       if (!hasSid) {
         setMe(null);
@@ -57,7 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setMe(data);
       toast({ title: "Login successful", description: `Welcome back, ${data.name}` });
     } catch (e: any) {
-      // Normalize error: never show raw status/json to users
       const normalizeLoginError = (err: unknown): { title: string; description: string } => {
         const defaultMsg = {
           title: "Login failed",
@@ -65,7 +63,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
 
         const msg = String((err as any)?.message || "");
-        // Try to extract status and body safely
         const match = msg.match(/^\s*(\d{3})\s*:\s*(.*)$/);
         let status = match ? parseInt(match[1], 10) : NaN;
         let body = match ? match[2]?.trim() : "";
@@ -78,10 +75,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             serverMessage = body;
           }
         } catch {
-          // ignore parse errors
         }
 
-        // Map to friendly, non-technical messages
         if (status === 404 || /account not found/i.test(serverMessage)) {
           return {
             title: "Login failed",
@@ -101,7 +96,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
         }
 
-        // If server provided a non-technical message, use it
         if (serverMessage && !/^\d{3}/.test(serverMessage)) {
           return { title: "Login failed", description: serverMessage };
         }
@@ -122,7 +116,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setMe(data);
       toast({ title: "Registration successful", description: `Account created for ${data.name}` });
     } catch (e: any) {
-      // Normalize register errors similar to login
       const normalizeRegisterError = (err: unknown): { title: string; description: string } => {
         const defaultMsg = {
           title: "Registration failed",
@@ -143,7 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch {}
 
-        // Friendly mappings
         if (/email already registered/i.test(serverMessage)) {
           return {
             title: "Email already registered",
@@ -178,7 +170,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiRequest("POST", "/api/auth/logout");
       setMe(null);
       toast({ title: "Logged out", description: "You have been signed out." });
-      // Navigate back to Home after logout
       setLocation("/");
     } catch (e: any) {
       toast({ title: "Logout failed", description: e.message, variant: "destructive" });

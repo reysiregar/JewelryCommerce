@@ -34,7 +34,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  // Set up media query listener for system changes
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -46,13 +45,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  // No persistence: preference is session-only as requested
-
   const activeTheme = useMemo<"light" | "dark">(() => {
     return resolveActive(preference, mqlRef.current);
   }, [preference, systemDark]);
 
-  // Apply theme class to root element
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.classList.toggle("dark", activeTheme === "dark");

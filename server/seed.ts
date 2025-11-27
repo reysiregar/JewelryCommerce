@@ -11,7 +11,6 @@ async function main() {
 
   const db = initDb(url);
 
-  // Seed products if table is empty
   const existing = await db.select().from(productsTable).limit(1).execute();
   const hasAny = (existing && existing.length > 0);
 
@@ -31,7 +30,6 @@ async function main() {
         inStock: p.inStock ?? true,
         sizes: p.sizes ?? null,
       }));
-      // Insert in chunks to avoid large payload
       const chunkSize = 50;
       for (let i = 0; i < inserts.length; i += chunkSize) {
         const chunk = inserts.slice(i, i + chunkSize);
@@ -43,7 +41,6 @@ async function main() {
     console.log('Products already exist; skipping product seed');
   }
 
-  // Seed admin user if missing
   const adminEmail = 'admin@lumiere.test';
   const adminRows = await db.select().from(usersTable).where(eq(usersTable.email, adminEmail)).limit(1).execute();
   if (!adminRows || adminRows.length === 0) {

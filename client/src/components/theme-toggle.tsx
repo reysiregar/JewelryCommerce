@@ -10,7 +10,6 @@ type ThemeToggleProps = {
 export function ThemeToggle({ asListItem = false, className }: ThemeToggleProps) {
   const { preference, activeTheme, setPreference } = useTheme();
 
-  // Simple cycle: light -> dark -> system -> light
   const cyclePreference = () => {
     const next = preference === "light" ? "dark" : preference === "dark" ? "system" : "light";
     setPreference(next);

@@ -3,13 +3,12 @@ import { pgTable, text, varchar, integer, boolean, timestamp } from "drizzle-orm
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
-  role: text("role").notNull().default("user"), // "user" | "admin"
+  role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -26,14 +25,14 @@ export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  price: integer("price").notNull(), // in cents
-  category: text("category").notNull(), // "rings", "necklaces", "bracelets", "earrings"
+  price: integer("price").notNull(),
+  category: text("category").notNull(),
   imageUrl: text("image_url").notNull(),
-  images: text("images").array().notNull(), // array of image URLs for gallery
-  material: text("material").notNull(), // e.g., "14K Rose Gold", "Sterling Silver"
+  images: text("images").array().notNull(),
+  material: text("material").notNull(),
   isPreOrder: boolean("is_pre_order").notNull().default(false),
   inStock: boolean("in_stock").notNull().default(true),
-  sizes: text("sizes").array(), // available sizes for rings/bracelets
+  sizes: text("sizes").array(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   categoryIdx: sql`CREATE INDEX IF NOT EXISTS products_category_idx ON ${table} (category)`,
@@ -52,7 +51,7 @@ export const cartItems = pgTable("cart_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   quantity: integer("quantity").notNull().default(1),
-  size: text("size"), // selected size if applicable
+  size: text("size"),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
 }, (table) => ({
   userIdIdx: sql`CREATE INDEX IF NOT EXISTS cart_items_user_id_idx ON ${table} (user_id)`,
@@ -76,10 +75,10 @@ export const orders = pgTable("orders", {
   shippingCity: text("shipping_city").notNull(),
   shippingPostalCode: text("shipping_postal_code").notNull(),
   shippingCountry: text("shipping_country").notNull(),
-  totalAmount: integer("total_amount").notNull(), // in cents
-  status: text("status").notNull().default("pending"), // "pending", "processing", "completed"
+  totalAmount: integer("total_amount").notNull(),
+  status: text("status").notNull().default("pending"),
   isPreOrder: boolean("is_pre_order").notNull().default(false),
-  paymentStatus: text("payment_status").notNull().default("pending"), // "pending", "paid", "failed"
+  paymentStatus: text("payment_status").notNull().default("pending"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   userIdIdx: sql`CREATE INDEX IF NOT EXISTS orders_user_id_idx ON ${table} (user_id)`,
@@ -91,10 +90,10 @@ export const orderItems = pgTable("order_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
   productId: varchar("product_id").notNull().references(() => products.id),
-  productName: text("product_name").notNull(), // snapshot at time of order
-  productPrice: integer("product_price").notNull(), // price in cents at time of order
+  productName: text("product_name").notNull(),
+  productPrice: integer("product_price").notNull(),
   quantity: integer("quantity").notNull().default(1),
-  size: text("size"), // selected size if applicable
+  size: text("size"),
 }, (table) => ({
   orderIdIdx: sql`CREATE INDEX IF NOT EXISTS order_items_order_id_idx ON ${table} (order_id)`,
   productIdIdx: sql`CREATE INDEX IF NOT EXISTS order_items_product_id_idx ON ${table} (product_id)`,

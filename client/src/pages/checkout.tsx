@@ -36,7 +36,6 @@ export default function Checkout() {
     }
   }, [loading, me, setLocation, toast]);
 
-  // Warn user if navigating away while order is processing
   useEffect(() => {
     if (!isProcessing) return;
 
@@ -64,7 +63,6 @@ export default function Checkout() {
     const onPopState = () => {
       const proceed = window.confirm(message);
       if (!proceed) {
-        // Re-push current location to effectively cancel the back/forward navigation
         history.pushState(null, "", window.location.href);
       }
     };
@@ -80,8 +78,7 @@ export default function Checkout() {
     };
   }, [isProcessing, setLocation]);
 
-  // Create a custom schema for the form that excludes items and totalAmount
-  const checkoutFormSchema = insertOrderSchema.omit({ items: true, totalAmount: true });
+  const checkoutFormSchema = insertOrderSchema.omit({ userId: true });
   type CheckoutFormData = z.infer<typeof checkoutFormSchema>;
 
   const form = useForm<CheckoutFormData>({
@@ -94,6 +91,7 @@ export default function Checkout() {
       shippingCity: "",
       shippingPostalCode: "",
       shippingCountry: "Indonesia",
+      totalAmount: 0,
       status: "pending",
       isPreOrder: false,
       paymentStatus: "pending",
@@ -101,8 +99,8 @@ export default function Checkout() {
   });
 
   const createOrderMutation = useMutation({
-    mutationFn: async (data: InsertOrder) => {
-      return await apiRequest("POST", "/api/orders", data);
+    mutationFn: async (payload: any) => {
+      return await apiRequest("POST", "/api/orders", payload);
     },
     onSuccess: () => {
       toast({
@@ -134,27 +132,24 @@ export default function Checkout() {
 
     setIsProcessing(true);
 
-    // Simulate payment processing
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    const orderData: InsertOrder = {
+    const orderPayload = {
       ...data,
-      items: JSON.stringify(
-        items.map((item) => ({
-          productId: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          size: item.size,
-        }))
-      ),
       totalAmount: finalTotal,
       isPreOrder: items.some((item) => item.product.isPreOrder),
-      paymentStatus: "paid",
-      status: "processing",
+      paymentStatus: "paid" as const,
+      status: "processing" as const,
+      items: items.map((item) => ({
+        productId: item.product.id,
+        productName: item.product.name,
+        productPrice: item.product.price,
+        quantity: item.quantity,
+        size: item.size || null,
+      })),
     };
 
-    createOrderMutation.mutate(orderData);
+    createOrderMutation.mutate(orderPayload);
   };
 
   const formattedTotal = new Intl.NumberFormat("id-ID", {
@@ -163,7 +158,7 @@ export default function Checkout() {
     minimumFractionDigits: 0,
   }).format(totalPrice / 100);
 
-  const shippingCost = totalPrice >= 100000000 ? 0 : 5000000; // Free shipping over 1M IDR
+  const shippingCost = totalPrice >= 100000000 ? 0 : 5000000;
   const formattedShipping = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",

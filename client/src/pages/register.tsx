@@ -25,7 +25,6 @@ export default function Register() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic client-side validation to prevent empty/invalid submissions
     const emailOk = /.+@.+\..+/.test(email);
     if (!name.trim() || !emailOk || password.length < 6) {
       toast({
@@ -43,7 +42,6 @@ export default function Register() {
     setLoading(true);
     try {
       await register(name, email, password);
-      // Clear form on success
       setName("");
       setEmail("");
       setPassword("");

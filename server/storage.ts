@@ -22,36 +22,30 @@ import { eq, sql } from "drizzle-orm";
 import { hashPassword } from "./jwt";
 
 export interface IStorage {
-  // Products
   getProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<void>;
 
-  // Orders
   getOrders(): Promise<(Order & { items: OrderItem[] })[]>;
   getOrder(id: string): Promise<(Order & { items: OrderItem[] }) | undefined>;
   createOrder(order: InsertOrder, userId: string, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order & { items: OrderItem[] }>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
 
-  // Users
   createUser(user: InsertUser): Promise<User>;
   findUserByEmail(email: string): Promise<User | undefined>;
   getUser(id: string): Promise<User | undefined>;
 
-  // Sessions
-  createSession(userId: string): Promise<string>; // returns sessionId
+  createSession(userId: string): Promise<string>;
   getUserIdBySession(sessionId: string): Promise<string | undefined>;
   deleteSession(sessionId: string): Promise<void>;
 
-  // Cart
   getCart(userId: string): Promise<CartItem[]>;
   addOrIncrementCartItem(userId: string, productId: string, size?: string, quantity?: number): Promise<CartItem>;
   updateCartItemQuantity(userId: string, cartItemId: string, quantity: number): Promise<CartItem | undefined>;
   removeCartItem(userId: string, cartItemId: string): Promise<void>;
   clearCart(userId: string): Promise<void>;
-  // Account
   deleteUser(id: string): Promise<void>;
   deleteSessionsForUser(userId: string): Promise<void>;
 }
@@ -59,10 +53,10 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private products: Map<string, Product>;
   private orders: Map<string, Order>;
-  private orderItems: Map<string, OrderItem[]>; // orderId -> items
+  private orderItems: Map<string, OrderItem[]>;
   private users: Map<string, User>;
-  private sessions: Map<string, string>; // sid -> userId
-  private carts: Map<string, CartItem[]>; // userId -> cart items
+  private sessions: Map<string, string>;
+  private carts: Map<string, CartItem[]>;
 
   constructor() {
     this.products = new Map();
@@ -83,7 +77,6 @@ export class MemStorage implements IStorage {
       return (n >>> 0) / 0xffffffff;
     };
 
-    // Base price ranges per category (in IDR)
     const categoryRange: Record<string, { min: number; max: number }> = {
       rings: { min: 1_500_000, max: 3_500_000 },
       necklaces: { min: 1_300_000, max: 2_000_000 },
@@ -91,7 +84,6 @@ export class MemStorage implements IStorage {
       earrings: { min: 680_000, max: 1_200_000 },
     };
 
-    // Compute price from category and material; output cents
     const computePriceCents = (name: string, category: string, material: string): number => {
       const range = categoryRange[category] ?? { min: 1_000_000, max: 2_000_000 };
       const r = rand01(`${name}|${category}|${material}`);
@@ -111,18 +103,14 @@ export class MemStorage implements IStorage {
       if (m.includes("gold plated")) factor *= 1.05;
 
       let priced = base * factor;
-      // Clamp to category band
       priced = Math.min(range.max, Math.max(range.min, priced));
-      // Round to nearest 50,000 IDR
       const step = 50_000;
       priced = Math.round(priced / step) * step;
-      // Return cents
       return Math.round(priced * 100);
     };
 
     type SeedProduct = Omit<InsertProduct, "price">;
     const baseProducts: SeedProduct[] = [
-      // Existing unique products
       {
         name: "Rose Gold Diamond Ring",
         description:
@@ -225,8 +213,6 @@ export class MemStorage implements IStorage {
         inStock: true,
       },
 
-      // New uploaded products (17 items)
-      // Bracelets (6)
       {
         name: "Aurora Twist Bracelet",
         description:
@@ -312,7 +298,6 @@ export class MemStorage implements IStorage {
         sizes: ["S", "M", "L"],
       },
 
-      // Earrings (3)
       {
         name: "Luna Drop Earrings",
         description:
@@ -353,7 +338,6 @@ export class MemStorage implements IStorage {
         inStock: false,
       },
 
-      // Necklaces (3)
       {
         name: "Solitaire Pendant Necklace",
         description:
@@ -394,7 +378,6 @@ export class MemStorage implements IStorage {
         inStock: false,
       },
 
-      // Rings (5)
       {
         name: "Mira Signet Ring",
         description:
@@ -486,7 +469,6 @@ export class MemStorage implements IStorage {
         isPreOrder: product.isPreOrder ?? false,
         inStock: product.inStock ?? true,
         sizes: (product as any).sizes ?? null,
-        // @ts-ignore createdAt exists on Product type
         createdAt: new Date(),
       };
       this.products.set(id, prod);
@@ -501,13 +483,11 @@ export class MemStorage implements IStorage {
       email: "admin@lumiere.test",
       passwordHash: hashPassword("admin123"),
       role: "admin",
-      // @ts-ignore createdAt not used in mem
       createdAt: new Date(),
     } as User;
     this.users.set(id, admin);
   }
 
-  // Products
   async getProducts(): Promise<Product[]> {
     return Array.from(this.products.values());
   }
@@ -530,7 +510,6 @@ export class MemStorage implements IStorage {
       isPreOrder: insertProduct.isPreOrder ?? false,
       inStock: insertProduct.inStock ?? true,
       sizes: (insertProduct as any).sizes ?? null,
-      // @ts-ignore createdAt exists on Product type
       createdAt: new Date(),
     };
     this.products.set(id, product);
@@ -552,7 +531,6 @@ export class MemStorage implements IStorage {
     this.products.delete(id);
   }
 
-  // Orders
   async getOrders(): Promise<(Order & { items: OrderItem[] })[]> {
     return Array.from(this.orders.values()).map((order) => ({
       ...order,
@@ -595,7 +573,7 @@ export class MemStorage implements IStorage {
       productId: item.productId,
       productName: item.productName,
       productPrice: item.productPrice,
-      quantity: item.quantity,
+      quantity: item.quantity ?? 1,
       size: item.size ?? null,
     }));
     this.orderItems.set(id, orderItemsList);
@@ -615,7 +593,6 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  // Users
   async createUser(user: InsertUser): Promise<User> {
     const id = randomUUID();
     const u: User = {
@@ -624,7 +601,6 @@ export class MemStorage implements IStorage {
       email: user.email.toLowerCase(),
       passwordHash: hashPassword(user.password),
       role: user.role ?? "user",
-      // @ts-ignore
       createdAt: new Date(),
     } as User;
     this.users.set(id, u);
@@ -644,7 +620,6 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  // Sessions
   async createSession(userId: string): Promise<string> {
     const sid = randomUUID();
     this.sessions.set(sid, userId);
@@ -659,7 +634,6 @@ export class MemStorage implements IStorage {
     this.sessions.delete(sessionId);
   }
 
-  // Cart (in-memory)
   async getCart(userId: string): Promise<CartItem[]> {
     return [...(this.carts.get(userId) ?? [])];
   }
@@ -673,7 +647,6 @@ export class MemStorage implements IStorage {
       return { ...existing };
     }
     const item: CartItem = {
-      // @ts-ignore id provided for mem store
       id: randomUUID(),
       productId,
       quantity: quantity ?? 1,
@@ -710,7 +683,6 @@ export class MemStorage implements IStorage {
   async deleteUser(id: string): Promise<void> {
     this.users.delete(id);
     this.carts.delete(id);
-    // Remove sessions for user (avoid iterator/destructuring for ES5 targets)
     this.sessions.forEach((uid, sid) => {
       if (uid === id) this.sessions.delete(sid);
     });
@@ -730,7 +702,6 @@ class PostgresStorage implements IStorage {
     this.db = db;
   }
 
-  // Helper to map rows to types where necessary
   private mapProduct(row: any): Product {
     return {
       ...row,
@@ -739,7 +710,6 @@ class PostgresStorage implements IStorage {
     } as Product;
   }
 
-  // Products
   async getProducts(): Promise<Product[]> {
     const res = await this.db.select().from(products).execute();
     return res.map((r: any) => this.mapProduct(r));
@@ -776,7 +746,6 @@ class PostgresStorage implements IStorage {
 
   async updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product | undefined> {
     const values: any = { ...updates };
-    // Avoid accidentally setting undefined fields in SQL
     Object.keys(values).forEach((k) => values[k] === undefined && delete values[k]);
     if (Object.keys(values).length === 0) {
       return await this.getProduct(id);
@@ -795,7 +764,6 @@ class PostgresStorage implements IStorage {
     await this.db.delete(products).where(eq(products.id, id)).execute();
   }
 
-  // Orders
   async getOrders(): Promise<(Order & { items: OrderItem[] })[]> {
     const orderRows = await this.db.select().from(orders).execute();
     const result: (Order & { items: OrderItem[] })[] = [];
@@ -850,7 +818,6 @@ class PostgresStorage implements IStorage {
     const inserted = await this.db.insert(orders).values(values).returning().execute();
     const order = inserted[0] as Order;
 
-    // Insert order items
     const itemsToInsert = items.map((item) => ({
       orderId: order.id,
       productId: item.productId,
@@ -878,10 +845,9 @@ class PostgresStorage implements IStorage {
       .execute();
     if (!updated || updated.length === 0) return undefined;
     const row = updated[0];
-    return { ...row, items: JSON.parse(row.items) } as Order;
+    return row as Order;
   }
 
-  // Users
   async createUser(user: InsertUser): Promise<User> {
     const passwordHash = hashPassword(user.password);
     const values = {
@@ -914,7 +880,6 @@ class PostgresStorage implements IStorage {
     return rows && rows[0] ? (rows[0] as User) : undefined;
   }
 
-  // Sessions (persisted)
   async createSession(userId: string): Promise<string> {
     const sid = randomUUID();
     await this.db.insert(sessions).values({ id: sid, userId }).execute();
@@ -935,14 +900,12 @@ class PostgresStorage implements IStorage {
     await this.db.delete(sessions).where(eq(sessions.id, sessionId)).execute();
   }
 
-  // Cart (postgres)
   async getCart(userId: string): Promise<CartItem[]> {
     const res = await this.db.select().from(cartItems).where(eq(cartItems.userId, userId)).execute();
     return res as CartItem[];
   }
 
   async addOrIncrementCartItem(userId: string, productId: string, size?: string, quantity: number = 1): Promise<CartItem> {
-    // Try to find existing row with same product+size
     const existing = await this.db
       .select()
       .from(cartItems)
@@ -989,11 +952,8 @@ class PostgresStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
-    // Delete user sessions
     await this.db.delete(sessions).where(eq(sessions.userId, id)).execute();
-    // Delete cart items
     await this.db.delete(cartItems).where(eq(cartItems.userId, id)).execute();
-    // Delete user
     await this.db.delete(users).where(eq(users.id, id)).execute();
   }
 
@@ -1002,16 +962,14 @@ class PostgresStorage implements IStorage {
   }
 }
 
-// Export storage: prefer Postgres when DATABASE_URL provided
 let storageInstance: IStorage;
 
 if (process.env.DATABASE_URL) {
   try {
     const db = initDb(process.env.DATABASE_URL);
-    // Probe connectivity early; if it fails, fall back to memory.
-    await (db as any).execute?.(sql`select 1`)?.catch?.((e: any) => {
-      throw e;
-    });
+    if (typeof (db as any).execute === "function") {
+      await (db as any).execute(sql`select 1`);
+    }
     storageInstance = new PostgresStorage(db);
     console.log("[storage] Using PostgresStorage (DATABASE_URL detected)");
   } catch (e) {

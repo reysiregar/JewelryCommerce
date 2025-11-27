@@ -19,7 +19,6 @@ export function initDb(connectionString?: string) {
         ssl = { rejectUnauthorized: false };
       }
     } catch {
-      // If URL parsing fails, leave SSL undefined and let pg decide.
     }
 
     pool = new Pool({ connectionString: conn, ssl });

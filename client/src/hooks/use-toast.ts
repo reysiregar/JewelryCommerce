@@ -6,7 +6,6 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 3
-// Keep unmount delay short; visual auto-dismiss is handled by Provider duration
 const TOAST_REMOVE_DELAY = 1000
 
 type ToasterToast = ToastProps & {
@@ -91,8 +90,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {

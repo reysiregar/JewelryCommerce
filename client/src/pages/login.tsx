@@ -25,7 +25,6 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      // Clear form on success
       setEmail("");
       setPassword("");
       setLocation(returnTo || "/dashboard");

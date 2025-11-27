@@ -7,16 +7,11 @@ import { createHash } from "crypto";
 import path from "path";
 import { signToken, verifyToken, hashPassword } from "./jwt";
 
-// Rate limiting for account deletion attempts (in-memory)
 const deleteAttempts: Map<string, { count: number; lockedUntil?: number }> = new Map();
 const MAX_DELETE_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15; // lockout duration after max failed attempts
+const LOCKOUT_MINUTES = 15;
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Static assets are served from client/public by Vite in development
-  // and from the built "public" directory in production (see server/vite.ts).
-
-  // Util: parse cookies
   const normalizeAssetUrl = (url?: string) => {
     if (!url) return url as any;
     let u = url.replace(/^\/?assets\/generated_images\//, "/");
@@ -40,7 +35,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   const setSessionCookie = (res: any, token: string) => {
-    // Session cookie: no Max-Age means it expires when browser closes
     const cookie = `token=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax`;
     res.setHeader("Set-Cookie", cookie);
   };
@@ -59,7 +53,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return cookies["token"];
   };
 
-  // Auth endpoints
   app.get("/api/auth/me", async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ message: "Unauthorized" });
@@ -70,7 +63,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", async (req, res) => {
     try {
       const body = req.body;
-      // Stricter validation to prevent empty registrations
       const parsed = z
         .object({
           name: z.string().trim().min(1, "Name is required"),
@@ -109,17 +101,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", async (req, res) => {
-    // With JWT, we just clear the cookie - no database cleanup needed
     res.setHeader("Set-Cookie", "token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax");
     res.json({ success: true });
   });
 
-  // Cart endpoints (require authenticated user; cart persisted per user)
   app.get("/api/cart", async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ message: "Unauthorized" });
     const items = await storage.getCart(user.id);
-    // Hydrate with product data
     const hydrated = await Promise.all(
       items.map(async (i) => {
         const p = await storage.getProduct(i.productId);
@@ -131,7 +120,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       })
     );
-    // filter unknown products
     res.json(hydrated.filter((x) => x.product));
   });
 
@@ -190,7 +178,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json([]);
   });
 
-  // Products endpoints
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getProducts();
@@ -204,7 +191,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Search endpoint
   app.get("/api/search", async (req, res) => {
     try {
       const q = (req.query.q as string | undefined)?.trim() || "";
@@ -220,21 +206,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const hayCat = p.category.toLowerCase();
 
           let score = 0;
-          // Category boost for common keywords
           if (query.startsWith("ring")) score += hayCat === "rings" ? 5 : 0;
           if (query.startsWith("neck")) score += hayCat === "necklaces" ? 5 : 0;
           if (query.startsWith("brace")) score += hayCat === "bracelets" ? 5 : 0;
           if (query.startsWith("ear")) score += hayCat === "earrings" ? 5 : 0;
 
-          // Name prefix and inclusion boosts
           if (hayName.startsWith(query)) score += 6;
           if (hayName.includes(query)) score += 4;
 
-          // Material and description light boosts
           if (hayMat.includes(query)) score += 2;
           if (hayDesc.includes(query)) score += 1;
 
-          // Exact category keyword match
           if (["rings","ring","necklace","necklaces","bracelet","bracelets","earring","earrings"].includes(query)) {
             const norm = query.endsWith("s") ? query : `${query}s`;
             if (hayCat === norm) score += 8;
@@ -281,7 +263,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await getUserFromRequest(req);
       if (!user || user.role !== "admin") return res.status(401).json({ message: "Unauthorized" });
-      // Partial update: validate by narrowing to known fields and using zod partial
       const partial = insertProductSchema.partial().safeParse(req.body);
       if (!partial.success) {
         return res.status(400).json({ message: "Invalid product data" });
@@ -307,7 +288,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Orders endpoints
   app.get("/api/orders", async (req, res) => {
     try {
       const orders = await storage.getOrders();
@@ -334,17 +314,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await getUserFromRequest(req);
       if (!user) return res.status(401).json({ message: "Unauthorized" });
       
-      // Expect items array in the request body along with customer/shipping details
       const { items, ...orderData } = req.body;
       
       if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ message: "Order must contain at least one item" });
       }
       
-      // Validate order data (without items field)
       const validated = insertOrderSchema.parse(orderData);
       
-      // Prepare order items (snapshot product data)
       const orderItemsData = items.map((item: any) => ({
         productId: item.productId,
         productName: item.name || item.productName,
@@ -360,7 +337,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin summary
   app.get("/api/admin/summary", async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user || user.role !== "admin") return res.status(401).json({ message: "Unauthorized" });
@@ -374,12 +350,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Admin sales overview
   app.get("/api/admin/sales", async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user || user.role !== "admin") return res.status(401).json({ message: "Unauthorized" });
 
-    const period = (req.query.period as string | undefined) || "month"; // week | month | quarter
+    const period = (req.query.period as string | undefined) || "month";
     let days = 30;
     if (period === "week") days = 7;
     else if (period === "quarter") days = 90;
@@ -436,15 +411,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simulated payment endpoint
   app.post("/api/payment/simulate", async (req, res) => {
     try {
       const { amount, orderId } = req.body;
 
-      // Simulate payment processing delay
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Simulate 95% success rate
       const success = Math.random() > 0.05;
 
       if (success) {
@@ -465,7 +437,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete own account (non-admin users only) with confirmation + rate limiting
   app.post("/api/account/delete", async (req, res) => {
     try {
       const user = await getUserFromRequest(req);
@@ -495,7 +466,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Incorrect password", attempts: next, locked: !!record.lockedUntil });
       }
 
-      // Success: clear attempts record
       if (attempt) deleteAttempts.delete(user.id);
 
       await storage.deleteUser(user.id);

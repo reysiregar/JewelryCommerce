@@ -13,7 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 
 const FormSchema = insertProductSchema.extend({
-  // Accept price in display units (IDR) then convert to cents on submit via transform
   priceDisplay: z
     .string()
     .transform((v) => v.replace(/[^0-9]/g, ""))
@@ -82,7 +81,6 @@ export default function AdminProductForm() {
         price,
       };
       delete payload.priceDisplay;
-      // Normalize string lists
       if (typeof payload.images === "string") {
         payload.images = payload.images.split(",").map((s: string) => s.trim()).filter(Boolean);
       }

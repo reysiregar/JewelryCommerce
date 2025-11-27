@@ -25,7 +25,6 @@ export function Header() {
   const recent = useRecentSearches(8);
   const isAuthRoute = location.startsWith("/login") || location.startsWith("/register");
 
-  // If navigating to explicit auth pages, ensure modal is closed and disable profile button
   useEffect(() => {
     if (isAuthRoute && authOpen) setAuthOpen(false);
   }, [isAuthRoute, authOpen]);
@@ -40,19 +39,17 @@ export function Header() {
     const q = searchQuery.trim();
     if (q.length === 0) return;
     recent.add(q);
-    setSearchQuery(""); // Clear search input
+    setSearchQuery("");
     setSearchOpen(false);
     setLocation(`/products?q=${encodeURIComponent(q)}`);
   };
 
-  // Clear search query when closing search modal
   useEffect(() => {
     if (!searchOpen) {
       setSearchQuery("");
     }
   }, [searchOpen]);
 
-  // Close search on Escape, clear query if empty
   useEffect(() => {
     if (!searchOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -271,7 +268,6 @@ export function Header() {
   );
 }
 
-// Mobile menu content with nested theme panel
 function MobileMenuContent({ panel, setPanel, close, navLinks, me, logout, location, setLocation }: {
   panel: 'root' | 'theme';
   setPanel: (p: 'root' | 'theme') => void;
@@ -321,7 +317,6 @@ function MobileMenuContent({ panel, setPanel, close, navLinks, me, logout, locat
     );
   }
 
-  // Root panel
   return (
     <div className="h-full flex flex-col">
       <ul className="flex-1 overflow-auto">
@@ -435,12 +430,10 @@ function SearchSuggestions({ open, query, onPick, onSeeAll, onNavigate, onRememb
     minimumFractionDigits: 0,
   }), []);
 
-  // Reset active index when results or query change
   useEffect(() => {
     setActiveIdx(-1);
   }, [debounced, results.length]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
@@ -487,7 +480,6 @@ function SearchSuggestions({ open, query, onPick, onSeeAll, onNavigate, onRememb
   return (
     <div className="relative">
       {(
-        // Always render the container; choose content based on query state
         true
       ) && (
         <div className="absolute left-0 right-0 mt-2 rounded-xl border bg-popover shadow-lg overflow-hidden">
@@ -605,7 +597,6 @@ function useDebounced(value: string, delay: number) {
 function useRecentSearches(max: number = 8) {
   const STORAGE_KEY = "lumiere-recent-searches";
   
-  // Load initial state from localStorage
   const [items, setItems] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -619,7 +610,6 @@ function useRecentSearches(max: number = 8) {
     return [];
   });
 
-  // Save to localStorage whenever items change
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
