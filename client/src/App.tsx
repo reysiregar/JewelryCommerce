@@ -16,8 +16,10 @@ import NotFound from "@/pages/not-found";
 import UserDashboard from "@/pages/user-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminProductForm from "@/pages/admin-product-form";
+import AdminOrders from "@/pages/admin-orders";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import PurchaseHistory from "@/pages/purchase-history";
 import { ThemeProvider } from "@/lib/theme-context";
 
 function Router() {
@@ -29,7 +31,9 @@ function Router() {
       <Route path="/product/:id" component={ProductDetail} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/dashboard" component={UserDashboard} />
+      <Route path="/purchase-history" component={PurchaseHistory} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/orders" component={AdminOrders} />
       <Route path="/admin/products/new" component={AdminProductForm} />
       <Route path="/admin/products/:id/edit" component={AdminProductForm} />
       <Route path="/login" component={Login} />

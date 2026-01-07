@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Receipt } from "lucide-react";
 
 export default function OrderSuccess() {
   return (
@@ -20,8 +20,14 @@ export default function OrderSuccess() {
           with your order details and tracking information.
         </p>
         <div className="space-y-3">
+          <Link href="/purchase-history">
+            <Button className="w-full" data-testid="button-view-orders">
+              <Receipt className="h-4 w-4 mr-2" />
+              View My Orders
+            </Button>
+          </Link>
           <Link href="/products">
-            <Button className="w-full" data-testid="button-continue-shopping">
+            <Button variant="outline" className="w-full" data-testid="button-continue-shopping">
               Continue Shopping
             </Button>
           </Link>

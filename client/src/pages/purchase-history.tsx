@@ -1,0 +1,313 @@
+import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Link } from "wouter";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Download, Eye, ArrowLeft } from "lucide-react";
+
+interface OrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  productName: string;
+  productPrice: number;
+  quantity: number;
+  size?: string;
+}
+
+interface Order {
+  id: string;
+  userId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: string;
+  shippingCity: string;
+  shippingPostalCode: string;
+  shippingCountry: string;
+  totalAmount: number;
+  status: string;
+  isPreOrder: boolean;
+  paymentStatus: string;
+  createdAt: string;
+  items: OrderItem[];
+}
+
+export default function PurchaseHistory() {
+  const { me, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    document.title = "Purchase History";
+  }, []);
+
+  const { data: orders = [], isLoading, isError } = useQuery({
+    queryKey: ["/api/user/orders"],
+    queryFn: async () => {
+      const res = await fetch("/api/user/orders", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch orders");
+      return res.json();
+    },
+    enabled: !!me && !authLoading,
+  });
+
+  const downloadReceiptMutation = useMutation({
+    mutationFn: async (order: Order) => {
+      const res = await fetch("/api/receipt/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      if (!res.ok) throw new Error("Failed to generate receipt");
+      return { blob: await res.blob(), orderId: order.id };
+    },
+    onSuccess: ({ blob, orderId }) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `receipt-${orderId.substring(0, 8)}.html`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast({ title: "Receipt downloaded successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to download receipt", description: error.message, variant: "destructive" });
+    },
+  });
+
+  if (authLoading) return <div className="container mx-auto p-6">Loading…</div>;
+
+  if (!me) {
+    return (
+      <div className="container mx-auto p-6">
+        <p className="mb-4">You are not logged in.</p>
+        <Link href="/products">
+          <Button>Browse products</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 lg:px-8 py-8">
+      <div className="mb-8">
+        <div className="flex items-center gap-4 mb-4">
+          <Link href="/dashboard">
+            <Button variant="outline" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="font-serif text-3xl lg:text-4xl font-light">Purchase History</h1>
+            <p className="text-muted-foreground">View and manage your orders</p>
+          </div>
+        </div>
+      </div>
+
+      {isError && (
+        <Card className="p-4 bg-red-50 border-red-200 mb-6">
+          <p className="text-red-700">Failed to load orders. Please try again.</p>
+        </Card>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="p-6 animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </Card>
+          ))}
+        </div>
+      ) : orders.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground mb-4">You haven't made any purchases yet.</p>
+          <Link href="/products">
+            <Button>Start Shopping</Button>
+          </Link>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {orders.map((order: Order) => (
+            <Card key={order.id} className="p-6 hover:shadow-lg transition-shadow">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="font-medium text-lg mb-1">Order {order.id.slice(0, 8)}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4 mt-4 lg:mt-0">
+                  <div className="text-right">
+                    <p className="font-serif text-lg font-light">${(order.totalAmount / 100).toFixed(2)}</p>
+                    <div className="flex gap-2 mt-2">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          order.paymentStatus === "paid"
+                            ? "bg-green-100 text-green-700"
+                            : order.paymentStatus === "pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {order.paymentStatus}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          order.status === "completed"
+                            ? "bg-blue-100 text-blue-700"
+                            : order.status === "pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {order.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-b py-4 mb-4">
+                <h4 className="font-medium text-sm mb-2">Items</h4>
+                <div className="space-y-2">
+                  {order.items.map((item: OrderItem) => (
+                    <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
+                      <div>
+                        <p>{item.productName}</p>
+                        <p className="text-xs">
+                          {item.quantity}x ${(item.productPrice / 100).toFixed(2)}
+                          {item.size && <span> - Size: {item.size}</span>}
+                        </p>
+                      </div>
+                      <p>${((item.productPrice * item.quantity) / 100).toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col lg:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setSelectedOrder(order)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Details
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => downloadReceiptMutation.mutate(order)}
+                  disabled={downloadReceiptMutation.isPending}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Receipt
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedOrder(null)}>
+          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="font-serif text-2xl font-light">Order Details</h2>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="text-2xl leading-none hover:text-muted-foreground"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Order ID</p>
+                  <p className="font-medium">{selectedOrder.id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Order Date</p>
+                  <p className="font-medium">{new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Amount</p>
+                  <p className="font-serif text-lg font-light">${(selectedOrder.totalAmount / 100).toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <p className="font-medium">{selectedOrder.status}</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="font-medium mb-2">Shipping Address</h3>
+                <p className="text-sm text-muted-foreground">
+                  {selectedOrder.shippingAddress}, {selectedOrder.shippingCity} {selectedOrder.shippingPostalCode},
+                  {selectedOrder.shippingCountry}
+                </p>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="font-medium mb-4">Items</h3>
+                <div className="space-y-3">
+                  {selectedOrder.items.map((item: OrderItem) => (
+                    <div key={item.id} className="flex justify-between text-sm border-b pb-2">
+                      <div>
+                        <p className="font-medium">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Quantity: {item.quantity}
+                          {item.size && <span> | Size: {item.size}</span>}
+                        </p>
+                      </div>
+                      <p className="font-medium">${((item.productPrice * item.quantity) / 100).toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-muted p-4 rounded-lg">
+                <div className="flex justify-between font-medium text-lg">
+                  <span>Total</span>
+                  <span className="font-serif font-light">${(selectedOrder.totalAmount / 100).toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setSelectedOrder(null)}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    downloadReceiptMutation.mutate(selectedOrder);
+                    setSelectedOrder(null);
+                  }}
+                  disabled={downloadReceiptMutation.isPending}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Receipt
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}

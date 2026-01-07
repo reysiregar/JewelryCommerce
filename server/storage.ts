@@ -30,6 +30,7 @@ export interface IStorage {
 
   getOrders(): Promise<(Order & { items: OrderItem[] })[]>;
   getOrder(id: string): Promise<(Order & { items: OrderItem[] }) | undefined>;
+  getUserOrders(userId: string): Promise<(Order & { items: OrderItem[] })[]>;
   createOrder(order: InsertOrder, userId: string, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order & { items: OrderItem[] }>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
 
@@ -546,6 +547,15 @@ export class MemStorage implements IStorage {
     };
   }
 
+  async getUserOrders(userId: string): Promise<(Order & { items: OrderItem[] })[]> {
+    return Array.from(this.orders.values())
+      .filter((order) => order.userId === userId)
+      .map((order) => ({
+        ...order,
+        items: this.orderItems.get(order.id) || [],
+      }));
+  }
+
   async createOrder(insertOrder: InsertOrder, userId: string, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order & { items: OrderItem[] }> {
     const id = randomUUID();
     const order: Order = {
@@ -796,6 +806,27 @@ class PostgresStorage implements IStorage {
       .execute();
     
     return { ...order, items: items as OrderItem[] };
+  }
+
+  async getUserOrders(userId: string): Promise<(Order & { items: OrderItem[] })[]> {
+    const orderRows = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.userId, userId))
+      .execute();
+    
+    const result: (Order & { items: OrderItem[] })[] = [];
+    
+    for (const order of orderRows) {
+      const items = await this.db
+        .select()
+        .from(orderItems)
+        .where(eq(orderItems.orderId, order.id))
+        .execute();
+      result.push({ ...order, items: items as OrderItem[] });
+    }
+    
+    return result;
   }
 
   async createOrder(insertOrder: InsertOrder, userId: string, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order & { items: OrderItem[] }> {

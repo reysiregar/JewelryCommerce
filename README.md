@@ -19,7 +19,14 @@
 - Client‑side cart with size variants, persistent in `localStorage` (add to cart requires login)
 - Checkout flow with Zod‑validated form and simulated payment (requires login)
 - Auth: register, login, logout, current user (`/api/auth/me`)
-- Admin dashboard summary endpoint
+- **User Dashboard**: View account info, recent orders, and quick actions
+- **Purchase History**: Complete order history with receipt downloads for users
+- **Receipt Generator**: HTML receipts with order details, items, and print functionality
+- **Admin Dashboard**: 
+  - Product management (CRUD operations)
+  - Order management with status updates (pending → processing → completed)
+  - Sales analytics with interactive charts
+- **Secure Account Deletion**: Multi-step confirmation with lockout protection
 
 ---
 
@@ -92,17 +99,23 @@ Static assets: files in `client/public` are served from the root path (e.g., `/i
   - `/products` Product listing (supports `?category=...`)
   - `/product/:id` Product detail
   - `/checkout` Checkout (requires login)
-  - `/order-success` Order success
+  - `/order-success` Order success with link to purchase history
   - `/login`, `/register`
-  - `/dashboard` User dashboard
-  - `/admin` Admin dashboard
+  - `/dashboard` User dashboard with order summary
+  - `/purchase-history` User's complete order history with receipt downloads
+  - `/admin` Admin dashboard with product, order, and sales management
+  - `/admin/orders` Full order management with status controls
+  - `/admin/products/new` Create new product
+  - `/admin/products/:id/edit` Edit existing product
 - State:
   - Cart: `CartProvider` in `client/src/lib/cart-context.tsx` (localStorage persistence; add‑to‑cart and checkout are auth‑gated)
-  - Auth: `AuthProvider` in `client/src/lib/auth-context.tsx` (cookie session; `sid`) — supports `returnTo` redirect on login/register
+  - Auth: `AuthProvider` in `client/src/lib/auth-context.tsx` (cookie session; `token`) — supports `returnTo` redirect on login/register
   - Data fetching: React Query (`client/src/lib/queryClient.ts`)
 - UI: Tailwind + Radix UI components (`client/src/components/ui/*`)
+  - Fully responsive design optimized for mobile, tablet, and desktop
   - Toasts are dismissible and auto‑hide quickly to avoid blocking UI
   - Confirm dialog: `client/src/components/ui/confirm-dialog.tsx` — centered modal with portal + overlay; use to confirm destructive or sensitive actions (e.g., logout)
+  - Modal overlays for order details and receipt viewing
 
 ---
 
@@ -128,13 +141,21 @@ Seeded admin credentials (also seeded into Postgres when using `npm run db:seed`
 - `GET /api/search?q=...` → search products (name, description, material, category with boosts)
 
 ### Orders
-- `GET /api/orders` → list orders
+- `GET /api/orders` → list all orders (admin only)
 - `GET /api/orders/:id` → get order by id
+- `GET /api/user/orders` → get orders for logged-in user (requires auth)
 - `POST /api/orders` → create order (Zod validated, totals in cents) — requires a logged‑in user (session cookie)
-- `PATCH /api/orders/:id/status` `{ status }` → update status
+- `PATCH /api/orders/:id/status` `{ status }` → update order status (admin only)
+
+### Receipts
+- `POST /api/receipt/generate` `{ orderId }` → generate HTML receipt (requires auth; users can only access their own receipts, admins can access all)
 
 ### Admin
 - `GET /api/admin/summary` → requires admin; returns `{ products, orders, revenue }`
+- `GET /api/admin/sales?period=week|month|quarter` → sales data for charts (admin only)
+
+### Account Management
+- `POST /api/account/delete` `{ password, confirm: "DELETE" }` → delete user account with rate limiting and lockout protection (requires auth, not allowed for admins)
 
 ### Payment (Simulated)
 - `POST /api/payment/simulate` `{ amount, orderId }` → 95% success, latency ~1.5s
@@ -142,6 +163,24 @@ Seeded admin credentials (also seeded into Postgres when using `npm run db:seed`
 Sessions: HTTP‑only JWT token cookie (`token`, `SameSite=Lax`, path `/`). Session cookies expire when the browser is closed (auto logout). Set `JWT_SECRET` environment variable in production for secure token signing.
 
 Static assets: files in `client/public` are served from the root path (`/`).
+
+### User Flow
+1. **Browse & Shop**: Users can browse products without authentication
+2. **Authentication Required**: Login/register required for cart and checkout
+3. **Checkout**: Multi-step form with shipping details and simulated payment
+4. **Order Confirmation**: Success page with link to purchase history
+5. **Purchase History**: View all orders with details and download receipts
+6. **Account Management**: View dashboard, manage orders, or delete account
+
+### Admin Flow
+1. **Product Management**: Create, edit, delete, and preview products
+2. **Order Management**: 
+   - View all customer orders with filtering (all/pending/processing/completed/cancelled)
+   - Update order status with action buttons:
+     - Pending orders → Start Processing
+     - Processing orders → Mark as Completed
+     - Active orders → Cancel Order
+3. **Sales Analytics**: View revenue trends with interactive charts (week/month/quarter)
 
 ---
 
@@ -276,8 +315,9 @@ This section helps teammates create clear system flowcharts and Data Flow Diagra
 
 ### System Flowchart (High‑level)
 - Start → User opens web app → Frontend loads via Vite/static
-- User actions: Browse products → Add to cart → Checkout form → Simulated payment → Order created
-- Auth required for: Add to Cart and Checkout. Register/Login also grants access to admin summary (if role = admin).
+- User actions: Browse products → Add to cart → Checkout form → Simulated payment → Order created → View purchase history → Download receipts
+- Auth required for: Add to Cart, Checkout, and Purchase History. Register/Login also grants access to user dashboard and purchase history.
+- Admin actions: Product CRUD → Order management (view all orders, update status) → Sales analytics
 
 Mermaid (system request/response flow):
 ```mermaid
@@ -288,8 +328,12 @@ flowchart TD
   A -->|XHR: /api/search| D
   A -->|XHR: /api/auth/*| E[(DB: Users & Sessions)]
   A -->|POST: /api/orders| F["DB: Orders (auth)"]
-  A -->|POST: /api/payment/simulate| G{{Payment Simulator}}
-  G -->|status| A
+  A -->|GET: /api/user/orders| F
+  A -->|POST: /api/receipt/generate| G[Receipt Generator]
+  A -->|POST: /api/payment/simulate| H{{Payment Simulator}}
+  A -->|PATCH: /api/orders/:id/status| F
+  H -->|status| A
+  G -->|HTML file| A
 ```
 
 ### DFD — Context Diagram (Level 0)
@@ -329,14 +373,19 @@ Processes
 4. Authenticate User (`/api/auth/*`)
 5. Create Order (`POST /api/orders`)
 6. Simulate Payment (`POST /api/payment/simulate`)
-7. Admin Summary (`GET /api/admin/summary`)
-8. Update Order Status (`PATCH /api/orders/:id/status`)
+7. View User Orders (`GET /api/user/orders`)
+8. Generate Receipt (`POST /api/receipt/generate`)
+9. Admin Summary (`GET /api/admin/summary`)
+10. Admin Order Management (`GET /api/orders`, `PATCH /api/orders/:id/status`)
+11. Admin Sales Analytics (`GET /api/admin/sales`)
+12. Delete Account (`POST /api/account/delete`)
 
 Data Stores
 - D1 Products
-- D2 Orders
+- D2 Orders & OrderItems
 - D3 Users
 - D4 Sessions
+- D5 CartItems
 
 Mermaid (level 1 sketch):
 ```mermaid
@@ -345,28 +394,38 @@ flowchart TB
   A[Admin]
   P1["1. Browse Products"]
   P2["2. Search Products"]
-  P3["3. Manage Cart (client)"]
+  P3["3. Manage Cart"]
   P4["4. Authenticate"]
   P5["5. Create Order"]
   P6["6. Simulate Payment"]
-  P7["7. Admin Summary"]
-  P8["8. Update Order Status"]
+  P7["7. View User Orders"]
+  P8["8. Generate Receipt"]
+  P9["9. Admin Summary"]
+  P10["10. Admin Order Mgmt"]
+  P11["11. Admin Sales Analytics"]
+  P12["12. Delete Account"]
 
   D1[(Products)]
   D2[(Orders)]
   D3[(Users)]
   D4[(Sessions)]
+  D5[(CartItems)]
 
   U --> P1 --> D1 --> P1 --> U
   U --> P2 --> D1 --> P2 --> U
-  U --> P3
+  U --> P3 --> D5
   U --> P4 --> D3
   P4 --> D4
   U --> P5 --> D2 --> U
   P5 --> P6 --> U
-  A --> P7 --> D1
-  P7 --> D2
-  A --> P8 --> D2
+  U --> P7 --> D2 --> U
+  U --> P8 --> D2 --> U
+  A --> P9 --> D1
+  P9 --> D2
+  A --> P10 --> D2
+  A --> P11 --> D2
+  U --> P12 --> D3
+  P12 --> D4
 ```
 
 ### Data Dictionary (for DFD)
@@ -392,6 +451,10 @@ flowchart TB
 - Error handling: server returns JSON `{ message, ... }` with appropriate status codes
 - Schema: Normalized with foreign keys and indexes; `order_items` table links orders to products
 - Auth: JWT tokens (HttpOnly session cookie) that expire on browser close; users must login each visit; set `JWT_SECRET` in production
+- **Mobile Responsive**: All pages are fully optimized for mobile, tablet, and desktop views
+- **Receipt Format**: HTML receipts with print-ready styling, auto-opens print dialog on download
+- **Order Status Flow**: pending → processing → completed (or cancelled at any active stage)
+- **Security**: Rate limiting on account deletion (5 attempts max, 15-minute lockout), admin accounts cannot be deleted
 
 ## Deployment
 - Build via `npm run build` → outputs `dist/` with `dist/public` for client and bundled server entry
@@ -400,6 +463,11 @@ flowchart TB
 
 ## Roadmap (Optional)
 - Payment gateway integration
+- Email notifications for order updates
+- PDF receipt generation (currently HTML)
+- Order tracking and shipping integration
+- Product reviews and ratings
+- Wishlist functionality
 
 ---
 

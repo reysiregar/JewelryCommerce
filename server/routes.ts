@@ -297,6 +297,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/user/orders", async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const orders = await storage.getUserOrders(user.id);
+      res.json(orders);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching user orders", error: error.message });
+    }
+  });
+
   app.get("/api/orders/:id", async (req, res) => {
     try {
       const order = await storage.getOrder(req.params.id);
@@ -475,6 +488,270 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete account", error: e.message });
     }
   });
+
+  app.post("/api/receipt/generate", async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ message: "Unauthorized" });
+
+      const { orderId } = req.body;
+      if (!orderId) return res.status(400).json({ message: "Order ID is required" });
+
+      const order = await storage.getOrder(orderId);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+
+      if (order.userId !== user.id && user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Generate HTML receipt
+      const receiptHTML = generateReceiptHTML(order);
+
+      // Set response headers for HTML file download
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="receipt-${order.id.substring(0, 8)}.html"`);
+      res.send(receiptHTML);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error generating receipt", error: error.message });
+    }
+  });
+
+  const generateReceiptHTML = (order: any) => {
+    const items = order.items || [];
+    const subtotal = items.reduce((sum: number, item: any) => sum + (item.productPrice * item.quantity), 0);
+    const tax = Math.round(subtotal * 0.1); // 10% tax
+    const total = subtotal + tax;
+
+    const itemsHTML = items
+      .map(
+        (item: any) => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.productName}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${(item.productPrice / 100).toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${((item.productPrice * item.quantity) / 100).toFixed(2)}</td>
+      </tr>
+    `
+      )
+      .join("");
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Receipt - Order ${order.id}</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          margin: 0;
+          padding: 20px;
+          background: #f5f5f5;
+        }
+        .receipt {
+          background: white;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 40px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 40px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 20px;
+        }
+        .header h1 {
+          margin: 0;
+          font-size: 28px;
+          color: #333;
+          font-weight: 300;
+        }
+        .header p {
+          margin: 5px 0 0 0;
+          color: #666;
+          font-size: 14px;
+        }
+        .order-info {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 40px;
+          margin-bottom: 40px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid #eee;
+        }
+        .info-section h3 {
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          color: #666;
+          margin: 0 0 10px 0;
+        }
+        .info-section p {
+          margin: 5px 0;
+          color: #333;
+          font-size: 14px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 30px;
+        }
+        table th {
+          background: #f9f9f9;
+          padding: 12px 10px;
+          text-align: left;
+          font-weight: 600;
+          font-size: 13px;
+          text-transform: uppercase;
+          color: #666;
+          border-bottom: 2px solid #ddd;
+        }
+        .totals {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 40px;
+        }
+        .totals-section {
+          width: 300px;
+        }
+        .total-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 10px 0;
+          font-size: 14px;
+          color: #333;
+        }
+        .total-row.subtotal {
+          border-bottom: 1px solid #eee;
+        }
+        .total-row.tax {
+          border-bottom: 1px solid #eee;
+        }
+        .total-row.final {
+          border-top: 2px solid #333;
+          padding-top: 15px;
+          margin-top: 15px;
+          font-size: 18px;
+          font-weight: 600;
+        }
+        .footer {
+          text-align: center;
+          padding-top: 30px;
+          border-top: 1px solid #eee;
+          color: #666;
+          font-size: 12px;
+        }
+        .status-badge {
+          display: inline-block;
+          padding: 5px 10px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          margin: 0 5px;
+        }
+        .status-paid {
+          background: #d4edda;
+          color: #155724;
+        }
+        .status-completed {
+          background: #d1ecf1;
+          color: #0c5460;
+        }
+        @media print {
+          body {
+            background: white;
+            padding: 0;
+          }
+          .receipt {
+            box-shadow: none;
+            padding: 0;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="receipt">
+        <div class="header">
+          <h1>RECEIPT</h1>
+          <p>Order #${order.id.substring(0, 8).toUpperCase()}</p>
+        </div>
+
+        <div class="order-info">
+          <div>
+            <div class="info-section">
+              <h3>Order Date</h3>
+              <p>${new Date(order.createdAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            </div>
+            <div class="info-section">
+              <h3>Status</h3>
+              <p>
+                <span class="status-badge status-${order.paymentStatus}">${order.paymentStatus.toUpperCase()}</span>
+                <span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span>
+              </p>
+            </div>
+          </div>
+          <div>
+            <div class="info-section">
+              <h3>Bill To</h3>
+              <p>${order.customerName}</p>
+              <p>${order.customerEmail}</p>
+              <p>${order.customerPhone}</p>
+            </div>
+            <div class="info-section">
+              <h3>Ship To</h3>
+              <p>${order.shippingAddress}</p>
+              <p>${order.shippingCity}, ${order.shippingPostalCode}</p>
+              <p>${order.shippingCountry}</p>
+            </div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Unit Price</th>
+              <th style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHTML}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div class="totals-section">
+            <div class="total-row subtotal">
+              <span>Subtotal:</span>
+              <span>$${(subtotal / 100).toFixed(2)}</span>
+            </div>
+            <div class="total-row tax">
+              <span>Tax (10%):</span>
+              <span>$${(tax / 100).toFixed(2)}</span>
+            </div>
+            <div class="total-row final">
+              <span>Total:</span>
+              <span>$${(total / 100).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Thank you for your purchase!</p>
+          <p>Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+        </div>
+      </div>
+
+      <script>
+        window.print();
+      </script>
+    </body>
+    </html>
+    `;
+  };
 
   const httpServer = createServer(app);
   return httpServer;

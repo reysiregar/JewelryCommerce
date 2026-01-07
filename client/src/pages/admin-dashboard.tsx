@@ -112,6 +112,32 @@ export default function AdminDashboard() {
         </Confirm>
       </div>
 
+      {/* Manage Orders Section */}
+      <div className="border rounded-xl bg-card">
+        <div className="p-4 border-b flex items-center justify-between">
+          <div>
+            <h2 className="font-serif text-xl font-light">Manage Orders</h2>
+            <p className="text-sm text-muted-foreground">View and process customer orders</p>
+          </div>
+          <Link href="/admin/orders">
+            <Button className="whitespace-nowrap">
+              <span className="md:hidden">View Orders</span>
+              <span className="hidden md:inline">View All Orders</span>
+            </Button>
+          </Link>
+        </div>
+        <div className="p-4">
+          <div className="text-center text-muted-foreground">
+            <p className="text-sm">
+              {data?.orders ?? 0} total order{(data?.orders ?? 0) !== 1 ? 's' : ''}
+            </p>
+            <Link href="/admin/orders">
+              <Button variant="link" className="mt-2">Go to Order Management →</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Product List */}
       <div className="border rounded-xl bg-card">
         <div className="p-4 border-b flex items-center justify-between">
