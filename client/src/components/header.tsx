@@ -12,6 +12,7 @@ import { AuthModal } from "@/components/modals/auth-modal";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Confirm } from "@/components/ui/confirm-dialog";
 import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function Header() {
   const [location, setLocation] = useLocation();
@@ -485,7 +486,18 @@ function SearchSuggestions({ open, query, onPick, onSeeAll, onNavigate, onRememb
         <div className="absolute left-0 right-0 mt-2 rounded-xl border bg-popover shadow-lg overflow-hidden">
           {enabled ? (
             isLoading ? (
-              <div className="p-4 text-sm text-muted-foreground">Searching...</div>
+              <div className="p-4 space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="w-12 h-12 rounded" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                ))}
+              </div>
             ) : results.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground">No results</div>
             ) : (

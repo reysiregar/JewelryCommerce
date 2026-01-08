@@ -11,6 +11,7 @@ import { useLocation, useRoute, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const FormSchema = insertProductSchema.extend({
   priceDisplay: z
@@ -111,7 +112,27 @@ export default function AdminProductForm() {
 
   const onSubmit = (values: FormValues) => mutation.mutate(values);
 
-  if (loading) return <div className="container mx-auto p-6">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <Skeleton className="h-20 rounded" />
+            <Skeleton className="h-20 rounded" />
+            <Skeleton className="h-20 rounded" />
+            <Skeleton className="h-20 rounded" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-20 rounded" />
+            <Skeleton className="h-20 rounded" />
+            <Skeleton className="h-20 rounded" />
+            <Skeleton className="h-20 rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!me || me.role !== "admin") return <div className="container mx-auto p-6">Unauthorized</div>;
 
   return (

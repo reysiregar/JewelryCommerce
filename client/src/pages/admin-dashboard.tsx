@@ -8,6 +8,7 @@ import { Confirm } from "@/components/ui/confirm-dialog";
 import type { Product } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminDashboard() {
   const { me, loading, logout } = useAuth();
@@ -56,7 +57,20 @@ export default function AdminDashboard() {
     document.title = "Admin Dashboard";
   }, []);
 
-  if (loading) return <div className="container mx-auto p-6">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-xl" />
+        </div>
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    );
+  }
   if (!me) return <div className="container mx-auto p-6">Unauthorized</div>;
   if (me.role !== "admin") return <div className="container mx-auto p-6">Admins only.</div>;
 
@@ -132,7 +146,7 @@ export default function AdminDashboard() {
               {data?.orders ?? 0} total order{(data?.orders ?? 0) !== 1 ? 's' : ''}
             </p>
             <Link href="/admin/orders">
-              <Button variant="link" className="mt-2">Go to Order Management →</Button>
+              <Button variant="ghost" className="mt-2 px-0">Go to Order Management →</Button>
             </Link>
           </div>
         </div>
@@ -263,8 +277,10 @@ export default function AdminDashboard() {
             </LineChart>
           </ResponsiveContainer>
           {salesLoading && (
-            <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-              Loading sales…
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <div className="w-full h-full space-y-2">
+                <Skeleton className="h-full w-full" />
+              </div>
             </div>
           )}
           {salesError && !salesLoading && (

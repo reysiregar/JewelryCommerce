@@ -148,7 +148,7 @@ Seeded admin credentials (also seeded into Postgres when using `npm run db:seed`
 - `PATCH /api/orders/:id/status` `{ status }` → update order status (admin only)
 
 ### Receipts
-- `POST /api/receipt/generate` `{ orderId }` → generate HTML receipt (requires auth; users can only access their own receipts, admins can access all)
+- `POST /api/receipt/generate` `{ orderId }` → generate PDF receipt (requires auth; users can only access their own receipts, admins can access all)
 
 ### Admin
 - `GET /api/admin/summary` → requires admin; returns `{ products, orders, revenue }`
@@ -321,19 +321,41 @@ This section helps teammates create clear system flowcharts and Data Flow Diagra
 
 Mermaid (system request/response flow):
 ```mermaid
-flowchart TD
-  A[Browser UI] -->|HTTP GET| B[/Express Server/]
-  B -->|Serves| C[Client index.html + JS]
-  A -->|XHR: /api/products| D[(DB: Products)]
-  A -->|XHR: /api/search| D
-  A -->|XHR: /api/auth/*| E[(DB: Users & Sessions)]
-  A -->|POST: /api/orders| F["DB: Orders (auth)"]
-  A -->|GET: /api/user/orders| F
-  A -->|POST: /api/receipt/generate| G[Receipt Generator]
-  A -->|POST: /api/payment/simulate| H{{Payment Simulator}}
-  A -->|PATCH: /api/orders/:id/status| F
-  H -->|status| A
-  G -->|HTML file| A
+%%{ init: { 'flowchart': { 'curve': 'stepAfter' } } }%%
+flowchart LR
+    %% --- Styling ---
+    classDef browser fill:#e1f5fe,stroke:#0277bd,stroke-width:2px;
+    classDef server fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    classDef db fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+
+    %% --- Nodes ---
+    A[Browser UI]:::browser
+    
+    subgraph Backend
+        direction TB
+        B[/Express Server/]:::server
+        G[Receipt Gen]:::server
+        H{{Payment Sim}}:::server
+    end
+
+    subgraph Data
+        direction TB
+        D[(Products DB)]:::db
+        E[(Users DB)]:::db
+        F[(Orders DB)]:::db
+    end
+
+    %% --- Connections ---
+    %% Menggunakan 'stepAfter' membuat garis keluar lurus dulu baru berbelok
+    A -->|HTTP GET| B
+    B --> C[index.html]:::browser
+    
+    A -->|XHR: Products| D
+    A -->|XHR: Auth| E
+    A -->|XHR: Orders| F
+    
+    A -->|POST| G
+    A -->|POST| H
 ```
 
 ### DFD — Context Diagram (Level 0)

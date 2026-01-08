@@ -113,8 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await apiRequest("POST", "/api/auth/register", { name, email, password });
       const data = await res.json();
-      setMe(data);
-      toast({ title: "Registration successful", description: `Account created for ${data.name}` });
+      // Don't set user state - they need to login separately
+      toast({ title: "Registration successful", description: "Your account has been created. Please login to continue." });
     } catch (e: any) {
       const normalizeRegisterError = (err: unknown): { title: string; description: string } => {
         const defaultMsg = {

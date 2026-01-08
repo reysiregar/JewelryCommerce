@@ -45,7 +45,8 @@ export default function Register() {
       setName("");
       setEmail("");
       setPassword("");
-      setLocation(returnTo || "/dashboard");
+      // Redirect to login page after successful registration
+      setLocation(returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login");
     } finally {
       setLoading(false);
     }
@@ -58,11 +59,11 @@ export default function Register() {
         <form className="space-y-4" onSubmit={onSubmit}>
           <div>
             <label className="block text-sm mb-2">Full Name</label>
-            <Input placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required disabled={loading} />
+            <Input placeholder="Enter your full name" value={name} onChange={(e) => setName(e.target.value)} required disabled={loading} />
           </div>
           <div>
             <label className="block text-sm mb-2">Email</label>
-            <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} />
+            <Input type="email" placeholder="Enter your email address" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} />
           </div>
           <div>
             <label className="block text-sm mb-2">Password</label>

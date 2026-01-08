@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createHash } from "crypto";
 import path from "path";
 import { signToken, verifyToken, hashPassword } from "./jwt";
+import PDFDocument from "pdfkit";
 
 const deleteAttempts: Map<string, { count: number; lockedUntil?: number }> = new Map();
 const MAX_DELETE_ATTEMPTS = 5;
@@ -77,10 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email already registered" });
       }
       const user = await storage.createUser(parsed as any);
-      const token = signToken(user.id);
-      setSessionCookie(res, token);
-      const { passwordHash, ...safe } = user as any;
-      res.status(201).json(safe);
+      res.status(201).json({ message: "Account created successfully", email: user.email });
     } catch (error: any) {
       const friendly = error?.errors?.[0]?.message || error?.message || "Invalid user data";
       res.status(400).json({ message: friendly });
@@ -290,6 +288,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/orders", async (req, res) => {
     try {
+      const user = await getUserFromRequest(req);
+      if (!user || user.role !== "admin") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const orders = await storage.getOrders();
       res.json(orders);
     } catch (error: any) {
@@ -312,9 +314,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/orders/:id", async (req, res) => {
     try {
+      const user = await getUserFromRequest(req);
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const order = await storage.getOrder(req.params.id);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
+      }
+      if (order.userId !== user.id && user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
       }
       res.json(order);
     } catch (error: any) {
@@ -504,253 +513,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      // Generate HTML receipt
-      const receiptHTML = generateReceiptHTML(order);
-
-      // Set response headers for HTML file download
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="receipt-${order.id.substring(0, 8)}.html"`);
-      res.send(receiptHTML);
+      const doc = new PDFDocument({ margin: 50 });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="receipt-${order.id.substring(0, 8)}.pdf"`);
+      doc.pipe(res);      
+      generateReceiptPDF(doc, order);
+      doc.end();
     } catch (error: any) {
       res.status(500).json({ message: "Error generating receipt", error: error.message });
     }
   });
 
-  const generateReceiptHTML = (order: any) => {
+  const generateReceiptPDF = (doc: PDFKit.PDFDocument, order: any) => {
     const items = order.items || [];
     const subtotal = items.reduce((sum: number, item: any) => sum + (item.productPrice * item.quantity), 0);
-    const tax = Math.round(subtotal * 0.1); // 10% tax
+    const tax = Math.round(subtotal * 0.1);
     const total = subtotal + tax;
 
-    const itemsHTML = items
-      .map(
-        (item: any) => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.productName}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${(item.productPrice / 100).toFixed(2)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${((item.productPrice * item.quantity) / 100).toFixed(2)}</td>
-      </tr>
-    `
-      )
-      .join("");
+    doc.fontSize(28).font('Helvetica-Bold').text('RECEIPT', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(12).font('Helvetica').text(`Order #${order.id.substring(0, 8).toUpperCase()}`, { align: 'center' });
+    doc.moveDown(1);
+    
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(1);
 
-    return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Receipt - Order ${order.id}</title>
-      <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          margin: 0;
-          padding: 20px;
-          background: #f5f5f5;
-        }
-        .receipt {
-          background: white;
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 40px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .header {
-          text-align: center;
-          margin-bottom: 40px;
-          border-bottom: 2px solid #333;
-          padding-bottom: 20px;
-        }
-        .header h1 {
-          margin: 0;
-          font-size: 28px;
-          color: #333;
-          font-weight: 300;
-        }
-        .header p {
-          margin: 5px 0 0 0;
-          color: #666;
-          font-size: 14px;
-        }
-        .order-info {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 40px;
-          margin-bottom: 40px;
-          padding-bottom: 20px;
-          border-bottom: 1px solid #eee;
-        }
-        .info-section h3 {
-          font-size: 12px;
-          font-weight: 600;
-          text-transform: uppercase;
-          color: #666;
-          margin: 0 0 10px 0;
-        }
-        .info-section p {
-          margin: 5px 0;
-          color: #333;
-          font-size: 14px;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 30px;
-        }
-        table th {
-          background: #f9f9f9;
-          padding: 12px 10px;
-          text-align: left;
-          font-weight: 600;
-          font-size: 13px;
-          text-transform: uppercase;
-          color: #666;
-          border-bottom: 2px solid #ddd;
-        }
-        .totals {
-          display: flex;
-          justify-content: flex-end;
-          margin-bottom: 40px;
-        }
-        .totals-section {
-          width: 300px;
-        }
-        .total-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 10px 0;
-          font-size: 14px;
-          color: #333;
-        }
-        .total-row.subtotal {
-          border-bottom: 1px solid #eee;
-        }
-        .total-row.tax {
-          border-bottom: 1px solid #eee;
-        }
-        .total-row.final {
-          border-top: 2px solid #333;
-          padding-top: 15px;
-          margin-top: 15px;
-          font-size: 18px;
-          font-weight: 600;
-        }
-        .footer {
-          text-align: center;
-          padding-top: 30px;
-          border-top: 1px solid #eee;
-          color: #666;
-          font-size: 12px;
-        }
-        .status-badge {
-          display: inline-block;
-          padding: 5px 10px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 600;
-          text-transform: uppercase;
-          margin: 0 5px;
-        }
-        .status-paid {
-          background: #d4edda;
-          color: #155724;
-        }
-        .status-completed {
-          background: #d1ecf1;
-          color: #0c5460;
-        }
-        @media print {
-          body {
-            background: white;
-            padding: 0;
-          }
-          .receipt {
-            box-shadow: none;
-            padding: 0;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="receipt">
-        <div class="header">
-          <h1>RECEIPT</h1>
-          <p>Order #${order.id.substring(0, 8).toUpperCase()}</p>
-        </div>
+    const infoY = doc.y;
+    
+    doc.fontSize(10).font('Helvetica-Bold').text('ORDER DATE', 50, infoY);
+    doc.fontSize(10).font('Helvetica').text(
+      new Date(order.createdAt).toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      }),
+      50,
+      infoY + 15
+    );
+    
+    doc.fontSize(10).font('Helvetica-Bold').text('STATUS', 50, infoY + 50);
+    doc.fontSize(10).font('Helvetica')
+      .text(`Payment: ${order.paymentStatus.toUpperCase()}`, 50, infoY + 65)
+      .text(`Order: ${order.status.toUpperCase()}`, 50, infoY + 80);
 
-        <div class="order-info">
-          <div>
-            <div class="info-section">
-              <h3>Order Date</h3>
-              <p>${new Date(order.createdAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            </div>
-            <div class="info-section">
-              <h3>Status</h3>
-              <p>
-                <span class="status-badge status-${order.paymentStatus}">${order.paymentStatus.toUpperCase()}</span>
-                <span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span>
-              </p>
-            </div>
-          </div>
-          <div>
-            <div class="info-section">
-              <h3>Bill To</h3>
-              <p>${order.customerName}</p>
-              <p>${order.customerEmail}</p>
-              <p>${order.customerPhone}</p>
-            </div>
-            <div class="info-section">
-              <h3>Ship To</h3>
-              <p>${order.shippingAddress}</p>
-              <p>${order.shippingCity}, ${order.shippingPostalCode}</p>
-              <p>${order.shippingCountry}</p>
-            </div>
-          </div>
-        </div>
+    doc.fontSize(10).font('Helvetica-Bold').text('BILL TO', 320, infoY);
+    doc.fontSize(10).font('Helvetica')
+      .text(order.customerName, 320, infoY + 15)
+      .text(order.customerEmail, 320, infoY + 30)
+      .text(order.customerPhone, 320, infoY + 45);
 
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th style="text-align: center;">Qty</th>
-              <th style="text-align: right;">Unit Price</th>
-              <th style="text-align: right;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHTML}
-          </tbody>
-        </table>
+    doc.fontSize(10).font('Helvetica-Bold').text('SHIP TO', 320, infoY + 70);
+    doc.fontSize(10).font('Helvetica')
+      .text(order.shippingAddress, 320, infoY + 85)
+      .text(`${order.shippingCity}, ${order.shippingPostalCode}`, 320, infoY + 100)
+      .text(order.shippingCountry, 320, infoY + 115);
+    
+    doc.y = infoY + 140;
+    doc.moveDown(1);
 
-        <div class="totals">
-          <div class="totals-section">
-            <div class="total-row subtotal">
-              <span>Subtotal:</span>
-              <span>$${(subtotal / 100).toFixed(2)}</span>
-            </div>
-            <div class="total-row tax">
-              <span>Tax (10%):</span>
-              <span>$${(tax / 100).toFixed(2)}</span>
-            </div>
-            <div class="total-row final">
-              <span>Total:</span>
-              <span>$${(total / 100).toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(1);
 
-        <div class="footer">
-          <p>Thank you for your purchase!</p>
-          <p>Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-        </div>
-      </div>
+    const tableTop = doc.y;
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Product', 50, tableTop);
+    doc.text('Qty', 320, tableTop, { width: 50, align: 'center' });
+    doc.text('Unit Price', 380, tableTop, { width: 80, align: 'right' });
+    doc.text('Total', 470, tableTop, { width: 80, align: 'right' });
 
-      <script>
-        window.print();
-      </script>
-    </body>
-    </html>
-    `;
+    doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+    doc.moveDown(0.5);
+
+    let itemY = tableTop + 25;
+    doc.font('Helvetica').fontSize(10);
+    
+    items.forEach((item: any) => {
+      if (itemY > 700) {
+        doc.addPage();
+        itemY = 50;
+      }
+
+      doc.text(item.productName, 50, itemY, { width: 250 });
+      doc.text(item.quantity.toString(), 320, itemY, { width: 50, align: 'center' });
+      doc.text(`$${(item.productPrice / 100).toFixed(2)}`, 380, itemY, { width: 80, align: 'right' });
+      doc.text(`$${((item.productPrice * item.quantity) / 100).toFixed(2)}`, 470, itemY, { width: 80, align: 'right' });
+      
+      itemY += 25;
+      
+      // Light separator line
+      doc.moveTo(50, itemY - 5).lineTo(550, itemY - 5).strokeOpacity(0.2).stroke().strokeOpacity(1);
+    });
+
+    // Move to totals section
+    doc.y = itemY + 10;
+    const totalsX = 400;
+    const totalsY = doc.y;
+
+    // Subtotal
+    doc.fontSize(10).font('Helvetica').text('Subtotal:', totalsX, totalsY, { width: 80, align: 'left' });
+    doc.text(`$${(subtotal / 100).toFixed(2)}`, totalsX + 80, totalsY, { width: 70, align: 'right' });
+
+    // Tax
+    doc.text('Tax (10%):', totalsX, totalsY + 20, { width: 80, align: 'left' });
+    doc.text(`$${(tax / 100).toFixed(2)}`, totalsX + 80, totalsY + 20, { width: 70, align: 'right' });
+
+    // Line before total
+    doc.moveTo(totalsX, totalsY + 40).lineTo(550, totalsY + 40).stroke();
+
+    // Total
+    doc.fontSize(14).font('Helvetica-Bold');
+    doc.text('Total:', totalsX, totalsY + 50, { width: 80, align: 'left' });
+    doc.text(`$${(total / 100).toFixed(2)}`, totalsX + 80, totalsY + 50, { width: 70, align: 'right' });
+
+    // Footer
+    doc.fontSize(10).font('Helvetica').fillColor('#666666');
+    
+    // Move to bottom of page
+    const footerY = 720;
+    doc.moveTo(50, footerY).lineTo(550, footerY).stroke();
+    doc.moveDown(0.5);
+    
+    doc.text('Thank you for your purchase!', 50, footerY + 10, { align: 'center' });
+    doc.fontSize(8).text(
+      `Generated on ${new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })}`,
+      50,
+      footerY + 25,
+      { align: 'center' }
+    );
   };
 
   const httpServer = createServer(app);

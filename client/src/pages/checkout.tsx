@@ -216,7 +216,7 @@ export default function Checkout() {
                         <FormItem>
                           <FormLabel>Full Name</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-name" placeholder="John Doe" />
+                            <Input {...field} data-testid="input-name" placeholder="Enter your full name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

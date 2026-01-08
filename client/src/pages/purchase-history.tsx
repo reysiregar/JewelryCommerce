@@ -6,6 +6,7 @@ import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Download, Eye, ArrowLeft } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface OrderItem {
   id: string;
@@ -71,7 +72,7 @@ export default function PurchaseHistory() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `receipt-${orderId.substring(0, 8)}.html`;
+      a.download = `receipt-${orderId.substring(0, 8)}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -83,7 +84,21 @@ export default function PurchaseHistory() {
     },
   });
 
-  if (authLoading) return <div className="container mx-auto p-6">Loading…</div>;
+  if (authLoading) {
+    return (
+      <div className="container mx-auto px-4 lg:px-8 py-8">
+        <div className="mb-8">
+          <Skeleton className="h-10 w-64 mb-2" />
+          <Skeleton className="h-5 w-48" />
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-40 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (!me) {
     return (
@@ -121,9 +136,10 @@ export default function PurchaseHistory() {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="p-6 animate-pulse">
-              <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <Card key={i} className="p-6">
+              <Skeleton className="h-6 w-1/3 mb-4" />
+              <Skeleton className="h-4 w-1/2 mb-3" />
+              <Skeleton className="h-4 w-2/3" />
             </Card>
           ))}
         </div>
