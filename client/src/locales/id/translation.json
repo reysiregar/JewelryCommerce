@@ -106,7 +106,7 @@
     "fullName": "Nama Lengkap",
     "fullNamePlaceholder": "Masukkan nama lengkap Anda",
     "email": "Email",
-    "emailPlaceholder": "anda@contoh.com",
+    "emailPlaceholder": "Masukkan alamat email Anda",
     "phone": "Nomor Telepon",
     "phonePlaceholder": "Masukkan nomor telepon",
     "address": "Alamat",
@@ -144,7 +144,7 @@
       "title": "Masuk ke Akun Anda",
       "welcomeBack": "Selamat Datang Kembali",
       "email": "Email",
-      "emailPlaceholder": "anda@contoh.com",
+      "emailPlaceholder": "Masukkan alamat email Anda",
       "password": "Kata Sandi",
       "submit": "Masuk",
       "loggingIn": "Sedang masuk...",
@@ -196,7 +196,8 @@
     "viewDetails": "Lihat Detail",
     "downloadReceipt": "Unduh Tanda Terima",
     "receiptDownloaded": "Tanda terima berhasil diunduh",
-    "items": "Item"
+    "items": "Item",
+    "confirmLogout": "Apakah Anda yakin ingin keluar dari akun Anda?"
   },
   "admin": {
     "title": "Dasbor Admin",
@@ -335,11 +336,14 @@
     "passwordMin": "Kata sandi harus minimal 6 karakter"
   },
   "footer": {
-    "aboutUs": "Tentang Kami",
+    "tagline": "Perhiasan indah yang dibuat dengan penuh gairah dan presisi untuk mereka yang menghargai keanggunan abadi.",
+    "quickLinks": "Tautan Cepat",
+    "categories": "Kategori",
     "contact": "Kontak",
+    "copyright": "Hak cipta dilindungi.",
+    "aboutUs": "Tentang Kami",
     "termsOfService": "Syarat Layanan",
-    "privacyPolicy": "Kebijakan Privasi",
-    "copyright": "© 2026 JewelCommerce. Hak cipta dilindungi."
+    "privacyPolicy": "Kebijakan Privasi"
   },
   "notFound": {
     "title": "404 Halaman Tidak Ditemukan",

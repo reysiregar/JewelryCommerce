@@ -245,7 +245,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const searchTermsSet = new Set<string>([query]);
       
       for (const [key, values] of Object.entries(searchTermMappings)) {
-        if (query === key || query.includes(key) || key.includes(query)) {
+        const queryWords = query.split(/\s+/);
+        const keyWords = key.split(/\s+/);
+        
+        if (query === key || queryWords.some(qw => keyWords.includes(qw)) || keyWords.some(kw => queryWords.includes(kw))) {
           values.forEach(v => searchTermsSet.add(v));
         }
       }
@@ -262,23 +265,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let score = 0;
 
           for (const term of searchTerms) {
-            if (term.startsWith("ring") || term === "ring" || term === "rings") {
+            if (term === "ring" || term === "rings") {
               score += hayCat === "rings" ? 5 : 0;
             }
-            if (term.startsWith("neck") || term === "necklace" || term === "necklaces") {
+            if (term === "necklace" || term === "necklaces" || term === "neck") {
               score += hayCat === "necklaces" ? 5 : 0;
             }
-            if (term.startsWith("brace") || term === "bracelet" || term === "bracelets") {
+            if (term === "bracelet" || term === "bracelets" || term === "brace") {
               score += hayCat === "bracelets" ? 5 : 0;
             }
-            if (term.startsWith("ear") || term === "earring" || term === "earrings") {
+            if (term === "earring" || term === "earrings" || term === "ear") {
               score += hayCat === "earrings" ? 5 : 0;
             }
 
-            if (hayName.startsWith(term)) score += 6;
-            if (hayName.includes(term)) score += 4;
-            if (hayMat.includes(term)) score += 2;
-            if (hayDesc.includes(term)) score += 1;
+            const wordBoundaryRegex = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            
+            if (wordBoundaryRegex.test(hayName)) {
+              if (hayName.startsWith(term)) score += 6;
+              else score += 4;
+            } else if (hayName.includes(term)) {
+              score += 2;
+            }
+            
+            if (wordBoundaryRegex.test(hayMat)) score += 3;
+            else if (hayMat.includes(term)) score += 1;
+            
+            if (wordBoundaryRegex.test(hayDesc)) score += 2;
+            else if (hayDesc.includes(term)) score += 0.5;
 
             if (["rings","ring","necklace","necklaces","bracelet","bracelets","earring","earrings"].includes(term)) {
               const norm = term.endsWith("s") ? term : `${term}s`;

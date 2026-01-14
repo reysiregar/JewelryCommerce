@@ -19,8 +19,11 @@ import { useLocation } from "wouter";
 export default function ProductDetail() {
   const { t } = useTranslation();
   const [, params] = useRoute("/product/:id");
+  const productId = params?.id;
+  
   const { data: product, isLoading } = useQuery<Product>({
-    queryKey: ["/api/products", params?.id],
+    queryKey: ["/api/products", productId],
+    enabled: !!productId,
   });
 
   const [selectedSize, setSelectedSize] = useState<string>("");
@@ -37,16 +40,16 @@ export default function ProductDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background py-8 lg:py-12">
-        <div className="container mx-auto px-4 lg:px-8">
-          <Skeleton className="h-8 w-24 mb-8" />
-          <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+      <div className="min-h-screen bg-background py-4 sm:py-8 lg:py-12">
+        <div className="container mx-auto px-3 sm:px-4 lg:px-8">
+          <Skeleton className="h-8 w-20 sm:w-24 mb-4 sm:mb-6 lg:mb-8" />
+          <div className="grid md:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
             <Skeleton className="aspect-square w-full" />
-            <div className="space-y-6">
-              <Skeleton className="h-10 w-3/4" />
-              <Skeleton className="h-8 w-1/4" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-12 w-full" />
+            <div className="space-y-4 sm:space-y-6">
+              <Skeleton className="h-8 sm:h-10 w-3/4" />
+              <Skeleton className="h-6 sm:h-8 w-1/4" />
+              <Skeleton className="h-20 sm:h-24 w-full" />
+              <Skeleton className="h-10 sm:h-12 w-full" />
             </div>
           </div>
         </div>
@@ -56,9 +59,9 @@ export default function ProductDetail() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center">
-          <h2 className="font-serif text-2xl mb-4">{t('products.noProducts')}</h2>
+          <h2 className="font-serif text-xl sm:text-2xl mb-4">{t('products.noProducts')}</h2>
           <Link href={backHref}>
             <Button>{backLabel}</Button>
           </Link>
@@ -97,19 +100,19 @@ export default function ProductDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-8 lg:py-12">
-      <div className="container mx-auto px-4 lg:px-8">
+    <div className="min-h-screen bg-background py-4 sm:py-8 lg:py-12">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-8">
         {/* Back button */}
         <Link href={backHref}>
-          <Button variant="ghost" className="mb-8" data-testid="button-back">
+          <Button variant="ghost" className="mb-4 sm:mb-6 lg:mb-8" data-testid="button-back">
             <ArrowLeft className="mr-2 h-4 w-4" />
             {backLabel}
           </Button>
         </Link>
 
-        <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+        <div className="grid md:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
           {/* Images */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div className="aspect-square overflow-hidden rounded-md bg-accent">
               <img
                 src={product.imageUrl}
@@ -119,7 +122,7 @@ export default function ProductDetail() {
               />
             </div>
             {product.images && product.images.length > 1 && (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-4">
                 {product.images.slice(1).map((img, idx) => (
                   <div
                     key={idx}
@@ -137,28 +140,28 @@ export default function ProductDetail() {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div>
               <h1
-                className="font-serif text-3xl lg:text-4xl font-light mb-2"
+                className="font-serif text-2xl sm:text-3xl lg:text-4xl font-light mb-2"
                 data-testid="text-product-name"
               >
                 {product.name}
               </h1>
-              <p className="text-lg font-serif font-semibold" data-testid="text-product-price">
+              <p className="text-base sm:text-lg font-serif font-semibold" data-testid="text-product-price">
                 {formattedPrice}
               </p>
             </div>
 
             {(product.isPreOrder || !product.inStock) && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {product.isPreOrder && (
-                  <Badge variant="secondary" data-testid="badge-preorder">
+                  <Badge variant="secondary" data-testid="badge-preorder" className="text-xs sm:text-sm">
                     {t('products.preOrder')}
                   </Badge>
                 )}
                 {!product.inStock && (
-                  <Badge variant="secondary" data-testid="badge-out-of-stock">
+                  <Badge variant="secondary" data-testid="badge-out-of-stock" className="text-xs sm:text-sm">
                     {t('products.outOfStock')}
                   </Badge>
                 )}
@@ -168,16 +171,16 @@ export default function ProductDetail() {
             <Separator />
 
             <div>
-              <p className="text-sm text-muted-foreground mb-2">{t('productDetail.material')}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">{t('productDetail.material')}</p>
               <p className="font-medium">{product.material}</p>
             </div>
 
             {/* Size Selection */}
             {product.sizes && product.sizes.length > 0 && (
               <div>
-                <Label className="text-base mb-3 block">{t('cart.size')}</Label>
+                <Label className="text-sm sm:text-base mb-2 sm:mb-3 block">{t('cart.size')}</Label>
                 <RadioGroup value={selectedSize} onValueChange={setSelectedSize}>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 gap-2">
                     {product.sizes.map((size) => (
                       <div key={size}>
                         <RadioGroupItem
@@ -188,7 +191,7 @@ export default function ProductDetail() {
                         />
                         <Label
                           htmlFor={`size-${size}`}
-                          className="flex items-center justify-center rounded-md border-2 border-muted bg-background px-3 py-3 hover-elevate peer-data-[state=checked]:border-primary cursor-pointer"
+                          className="flex items-center justify-center rounded-md border-2 border-muted bg-background px-2 py-2 sm:px-3 sm:py-3 text-sm hover-elevate peer-data-[state=checked]:border-primary cursor-pointer"
                         >
                           {size}
                         </Label>
@@ -201,18 +204,18 @@ export default function ProductDetail() {
 
             {/* Quantity */}
             <div>
-              <Label className="text-base mb-3 block">{t('productDetail.quantity')}</Label>
-              <div className="flex items-center gap-3">
+              <Label className="text-sm sm:text-base mb-2 sm:mb-3 block">{t('productDetail.quantity')}</Label>
+              <div className="flex items-center gap-2 sm:gap-3">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   data-testid="button-decrease-quantity"
-                  className="rounded-full"
+                  className="rounded-full h-9 w-9 sm:h-10 sm:w-10"
                 >
-                  <Minus className="h-4 w-4" />
+                  <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
-                <span className="w-12 text-center font-medium" data-testid="text-quantity">
+                <span className="w-10 sm:w-12 text-center font-medium text-sm sm:text-base" data-testid="text-quantity">
                   {quantity}
                 </span>
                 <Button
@@ -220,9 +223,9 @@ export default function ProductDetail() {
                   size="icon"
                   onClick={() => setQuantity(quantity + 1)}
                   data-testid="button-increase-quantity"
-                  className="rounded-full"
+                  className="rounded-full h-9 w-9 sm:h-10 sm:w-10"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>
@@ -230,39 +233,54 @@ export default function ProductDetail() {
             {/* Add to Cart */}
             <Button
               size="lg"
-              className="w-full"
+              className="w-full text-sm sm:text-base h-11 sm:h-12"
               onClick={handleAddToCart}
               disabled={!product.inStock && !product.isPreOrder}
               data-testid="button-add-to-cart"
             >
-              <ShoppingBag className="mr-2 h-5 w-5" />
+              <ShoppingBag className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
               {product.isPreOrder ? t('products.preOrder') : t('productDetail.addToCart')}
             </Button>
 
             {/* Product Details Tabs */}
-            <Tabs defaultValue="description" className="mt-8">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="description" data-testid="tab-description">
-                  {t('productDetail.description')}
+            <Tabs defaultValue="description" className="mt-6 sm:mt-8">
+              <TabsList className="w-full grid grid-cols-3 h-auto gap-1 p-0.5 sm:p-1">
+                <TabsTrigger 
+                  value="description" 
+                  data-testid="tab-description" 
+                  className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 py-1.5 sm:py-2 leading-tight"
+                >
+                  <span className="block sm:hidden">Info</span>
+                  <span className="hidden sm:block">{t('productDetail.description')}</span>
                 </TabsTrigger>
-                <TabsTrigger value="materials" data-testid="tab-materials">
-                  {t('productDetail.material')}
+                <TabsTrigger 
+                  value="materials" 
+                  data-testid="tab-materials" 
+                  className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 py-1.5 sm:py-2 leading-tight"
+                >
+                  <span className="block sm:hidden">Material</span>
+                  <span className="hidden sm:block">{t('productDetail.material')}</span>
                 </TabsTrigger>
-                <TabsTrigger value="shipping" data-testid="tab-shipping">
-                  {t('checkout.shippingInfo')}
+                <TabsTrigger 
+                  value="shipping" 
+                  data-testid="tab-shipping" 
+                  className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 py-1.5 sm:py-2 leading-tight"
+                >
+                  <span className="block sm:hidden">Ship</span>
+                  <span className="hidden sm:block">{t('checkout.shippingInfo')}</span>
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="description" className="mt-4 text-sm leading-relaxed">
+              <TabsContent value="description" className="mt-3 sm:mt-4 text-xs sm:text-sm leading-relaxed px-1 sm:px-0">
                 <p data-testid="text-description">{product.description}</p>
               </TabsContent>
-              <TabsContent value="materials" className="mt-4 text-sm leading-relaxed">
+              <TabsContent value="materials" className="mt-3 sm:mt-4 text-xs sm:text-sm leading-relaxed px-1 sm:px-0">
                 <p>
                   Crafted from {product.material}, each piece is carefully handmade by
                   skilled artisans. We use only ethically sourced materials and
                   conflict-free gemstones.
                 </p>
               </TabsContent>
-              <TabsContent value="shipping" className="mt-4 text-sm leading-relaxed">
+              <TabsContent value="shipping" className="mt-3 sm:mt-4 text-xs sm:text-sm leading-relaxed px-1 sm:px-0">
                 <p>
                   Free shipping on all orders over Rp 1.000.000. Standard delivery
                   takes 3-5 business days. Express shipping available at checkout.

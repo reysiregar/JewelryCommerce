@@ -106,7 +106,7 @@
     "fullName": "Nom complet",
     "fullNamePlaceholder": "Entrez votre nom complet",
     "email": "E-mail",
-    "emailPlaceholder": "vous@exemple.com",
+    "emailPlaceholder": "Entrez votre adresse e-mail",
     "phone": "Numéro de téléphone",
     "phonePlaceholder": "Entrez le numéro de téléphone",
     "address": "Adresse",
@@ -144,7 +144,7 @@
       "title": "Connexion à votre compte",
       "welcomeBack": "Bon Retour",
       "email": "E-mail",
-      "emailPlaceholder": "vous@exemple.com",
+      "emailPlaceholder": "Entrez votre adresse e-mail",
       "password": "Mot de passe",
       "submit": "Se connecter",
       "loggingIn": "Connexion en cours...",
@@ -196,7 +196,8 @@
     "viewDetails": "Voir les Détails",
     "downloadReceipt": "Télécharger le Reçu",
     "receiptDownloaded": "Reçu téléchargé avec succès",
-    "items": "Articles"
+    "items": "Articles",
+    "confirmLogout": "Êtes-vous sûr de vouloir vous déconnecter de votre compte ?"
   },
   "admin": {
     "title": "Tableau de bord administrateur",
@@ -335,11 +336,14 @@
     "passwordMin": "Le mot de passe doit contenir au moins 6 caractères"
   },
   "footer": {
-    "aboutUs": "À propos de nous",
+    "tagline": "Bijoux exquis fabriqués avec passion et précision pour ceux qui apprécient l'élégance intemporelle.",
+    "quickLinks": "Liens Rapides",
+    "categories": "Catégories",
     "contact": "Contact",
+    "copyright": "Tous droits réservés.",
+    "aboutUs": "À propos de nous",
     "termsOfService": "Conditions d'utilisation",
-    "privacyPolicy": "Politique de confidentialité",
-    "copyright": "© 2026 JewelCommerce. Tous droits réservés."
+    "privacyPolicy": "Politique de confidentialité"
   },
   "notFound": {
     "title": "404 Page Non Trouvée",

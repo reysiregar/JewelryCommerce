@@ -106,7 +106,7 @@
     "fullName": "Nombre Completo",
     "fullNamePlaceholder": "Ingrese su nombre completo",
     "email": "Correo Electrónico",
-    "emailPlaceholder": "tu@ejemplo.com",
+    "emailPlaceholder": "Ingrese su dirección de correo",
     "phone": "Número de Teléfono",
     "phonePlaceholder": "Ingrese número de teléfono",
     "address": "Dirección",
@@ -144,7 +144,7 @@
       "title": "Inicia Sesión en tu Cuenta",
       "welcomeBack": "Bienvenido de Nuevo",
       "email": "Correo Electrónico",
-      "emailPlaceholder": "tu@ejemplo.com",
+      "emailPlaceholder": "Ingrese su dirección de correo",
       "password": "Contraseña",
       "submit": "Iniciar Sesión",
       "loggingIn": "Iniciando sesión...",
@@ -196,7 +196,8 @@
     "viewDetails": "Ver Detalles",
     "downloadReceipt": "Descargar Recibo",
     "receiptDownloaded": "Recibo descargado exitosamente",
-    "items": "Artículos"
+    "items": "Artículos",
+    "confirmLogout": "¿Está seguro de que desea cerrar sesión?"
   },
   "admin": {
     "title": "Panel de Administración",
@@ -335,11 +336,14 @@
     "passwordMin": "La contraseña debe tener al menos 6 caracteres"
   },
   "footer": {
-    "aboutUs": "Sobre Nosotros",
+    "tagline": "Joyería exquisita elaborada con pasión y precisión para quienes aprecian la elegancia atemporal.",
+    "quickLinks": "Enlaces Rápidos",
+    "categories": "Categorías",
     "contact": "Contacto",
+    "copyright": "Todos los derechos reservados.",
+    "aboutUs": "Sobre Nosotros",
     "termsOfService": "Términos de Servicio",
-    "privacyPolicy": "Política de Privacidad",
-    "copyright": "© 2026 JewelCommerce. Todos los derechos reservados."
+    "privacyPolicy": "Política de Privacidad"
   },
   "notFound": {
     "title": "404 Página No Encontrada",

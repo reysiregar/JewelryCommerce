@@ -106,7 +106,7 @@
     "fullName": "Full Name",
     "fullNamePlaceholder": "Enter your full name",
     "email": "Email",
-    "emailPlaceholder": "you@example.com",
+    "emailPlaceholder": "Enter your email address",
     "phone": "Phone Number",
     "phonePlaceholder": "Enter phone number",
     "address": "Address",
@@ -144,7 +144,7 @@
       "title": "Login to Your Account",
       "welcomeBack": "Welcome Back",
       "email": "Email",
-      "emailPlaceholder": "you@example.com",
+      "emailPlaceholder": "Enter your email address",
       "password": "Password",
       "submit": "Login",
       "loggingIn": "Logging in...",
@@ -194,7 +194,8 @@
     "viewDetails": "View Details",
     "downloadReceipt": "Download Receipt",
     "receiptDownloaded": "Receipt downloaded successfully",
-    "items": "Items"
+    "items": "Items",
+    "confirmLogout": "Are you sure you want to sign out of your account?"
   },
   "admin": {
     "title": "Admin Dashboard",
@@ -333,11 +334,14 @@
     "passwordMin": "Password must be at least 6 characters"
   },
   "footer": {
-    "aboutUs": "About Us",
+    "tagline": "Exquisite jewelry crafted with passion and precision for those who appreciate timeless elegance.",
+    "quickLinks": "Quick Links",
+    "categories": "Categories",
     "contact": "Contact",
+    "copyright": "All rights reserved.",
+    "aboutUs": "About Us",
     "termsOfService": "Terms of Service",
-    "privacyPolicy": "Privacy Policy",
-    "copyright": "© 2026 JewelCommerce. All rights reserved."
+    "privacyPolicy": "Privacy Policy"
   },
   "notFound": {
     "title": "404 Page Not Found",

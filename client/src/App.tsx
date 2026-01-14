@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/lib/cart-context";
 import { AuthProvider } from "@/lib/auth-context";
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { CartSheet } from "@/components/cart-sheet";
 import Home from "@/pages/home";
 import Products from "@/pages/products";
@@ -21,6 +22,24 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import PurchaseHistory from "@/pages/purchase-history";
 import { ThemeProvider } from "@/lib/theme-context";
+
+function AppLayout() {
+  const [location] = useLocation();
+  
+  // Only show footer on home and products pages
+  const showFooter = location === "/" || location.startsWith("/products") || location.startsWith("/product/");
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1">
+        <Router />
+      </main>
+      {showFooter && <Footer />}
+      <CartSheet />
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -51,13 +70,7 @@ export default function App() {
         <ThemeProvider>
           <AuthProvider>
             <CartProvider>
-              <div className="min-h-screen flex flex-col">
-                <Header />
-                <main className="flex-1">
-                  <Router />
-                </main>
-                <CartSheet />
-              </div>
+              <AppLayout />
               <Toaster />
             </CartProvider>
           </AuthProvider>
