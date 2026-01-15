@@ -199,8 +199,6 @@ export function Header() {
             )}
           </div>
 
-          {/* (Cart moved into main icon cluster above) */}
-
           {/* Mobile Menu */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild className="lg:hidden">
@@ -223,6 +221,7 @@ export function Header() {
                 logout={logout}
                 location={location}
                 setLocation={setLocation}
+                handleNavClick={handleNavClick}
               />
             </SheetContent>
           </Sheet>
@@ -274,7 +273,6 @@ export function Header() {
         </div>
       )}
     </header>
-      {/* Backdrop */}
       {searchOpen && (
         <div
           className="fixed inset-0 z-40 bg-background/60 backdrop-blur-md animate-in fade-in duration-150"
@@ -285,7 +283,7 @@ export function Header() {
   );
 }
 
-function MobileMenuContent({ panel, setPanel, close, navLinks, me, logout, location, setLocation }: {
+function MobileMenuContent({ panel, setPanel, close, navLinks, me, logout, location, setLocation, handleNavClick }: {
   panel: 'root' | 'theme' | 'language';
   setPanel: (p: 'root' | 'theme' | 'language') => void;
   close: () => void;
@@ -294,11 +292,11 @@ function MobileMenuContent({ panel, setPanel, close, navLinks, me, logout, locat
   logout: () => void;
   location: string;
   setLocation: (path: string) => void;
+  handleNavClick: (path: string, e: React.MouseEvent) => void;
 }) {
   const { t, i18n } = useTranslation();
   const { preference, activeTheme, setPreference } = useTheme();
 
-  // Language Panel
   if (panel === 'language') {
     const languages = [
       { code: 'en', name: 'English', flag: '🇺🇸' },
@@ -492,7 +490,7 @@ function SearchSuggestions({ open, query, onPick, onSeeAll, onNavigate, onRememb
   });
 
   const results = data ?? [];
-  const [activeIdx, setActiveIdx] = useState<number>(-1); // -1: none, [0..n-1]: items, n: See all
+  const [activeIdx, setActiveIdx] = useState<number>(-1);
 
   const formatter = useMemo(() => new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -703,11 +701,11 @@ function useRecentSearches(max: number = 8) {
   const add = (term: string) => {
     const t = term.trim();
     if (!t) return;
-    console.log("Adding search term:", t); // Debug log
+    console.log("Adding search term:", t);
     const lower = t.toLowerCase();
     setItems((prev) => {
       const updated = [t, ...prev.filter((x) => x.toLowerCase() !== lower)].slice(0, max);
-      console.log("Updated recent searches:", updated); // Debug log
+      console.log("Updated recent searches:", updated);
       return updated;
     });
   };
