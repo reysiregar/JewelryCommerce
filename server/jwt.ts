@@ -6,7 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || (() => {
   return randomBytes(32).toString("hex");
 })();
 
-const JWT_EXPIRES_IN = "12h";
+const JWT_EXPIRES_IN = "1h";
 
 export interface SessionPayload {
   userId: string;

@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function UserDashboard() {
   const { me, loading, logout } = useAuth();
   const { t } = useTranslation();
+  const { toast } = useToast();
 
   useEffect(() => {
     document.title = t('dashboard.welcome');
@@ -29,27 +30,6 @@ export default function UserDashboard() {
     },
     enabled: !!me && !loading,
   });
-
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-32 rounded-xl" />
-        </div>
-      </div>
-    );
-  }
-  if (!me) return (
-    <div className="container mx-auto p-6">
-      <p className="mb-4">{t('auth.login.welcomeBack')}</p>
-      <Link href="/products"><Button>{t('products.title')}</Button></Link>
-    </div>
-  );
-
-  const { toast } = useToast();
 
   const deleteMutation = useMutation({
     mutationFn: async ({ password, confirm }: { password: string; confirm: string }) => {
@@ -73,6 +53,26 @@ export default function UserDashboard() {
   });
 
   const recentOrders = orders.slice(0, 3);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-32 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+  
+  if (!me) return (
+    <div className="container mx-auto p-6">
+      <p className="mb-4">{t('auth.login.welcomeBack')}</p>
+      <Link href="/products"><Button>{t('products.title')}</Button></Link>
+    </div>
+  );
 
   return (
     <div className="container mx-auto px-4 lg:px-8 py-8 space-y-6">

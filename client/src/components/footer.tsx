@@ -1,10 +1,20 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { Gem, Mail, MapPin, Phone } from "lucide-react";
 
 export function Footer() {
   const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
+  const [location, setLocation] = useLocation();
+
+  const handleLinkClick = (path: string, e: React.MouseEvent) => {
+    if (location === path) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      setLocation(path);
+    }
+  };
 
   return (
     <footer className="border-t bg-background">
@@ -28,14 +38,40 @@ export function Footer() {
             </h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
+                <a 
+                  href="/" 
+                  onClick={(e) => handleLinkClick('/', e)}
+                  className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
                   {t('header.home')}
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/products" className="text-muted-foreground hover:text-foreground transition-colors">
+                <a 
+                  href="/products" 
+                  onClick={(e) => handleLinkClick('/products', e)}
+                  className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
                   {t('header.products')}
-                </Link>
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="/login" 
+                  onClick={(e) => handleLinkClick('/login', e)}
+                  className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  {t('auth.login.submit')}
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="/register" 
+                  onClick={(e) => handleLinkClick('/register', e)}
+                  className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  {t('auth.register.submit')}
+                </a>
               </li>
             </ul>
           </div>

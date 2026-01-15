@@ -264,8 +264,8 @@
     "materialPlaceholder": "contoh: Perak Sterling",
     "imageUrlField": "URL Gambar",
     "imageUrlPlaceholder": "/assets/image.png",
-    "galleryImagesField": "Gambar Galeri (dipisahkan koma)",
-    "galleryImagesPlaceholder": "/img1.png, /img2.png",
+    "galleryImagesField": "Gambar Galeri",
+    "galleryImagesPlaceholder": "Unggah gambar produk tambahan",
     "descriptionField": "Deskripsi",
     "sizesField": "Ukuran (dipisahkan koma atau kosong)",
     "sizesPlaceholder": "S,M,L atau 5,6,7",
@@ -317,7 +317,7 @@
     "completed": "Selesai",
     "productImage": "Gambar Produk",
     "uploadImageText": "Klik atau seret gambar untuk mengunggah (maks 5MB)",
-    "galleryImagesNote": "URL dipisahkan koma untuk gambar tambahan"
+    "galleryImagesNote": "Unggah gambar produk tambahan untuk galeri"
   },
   "orderStatus": {
     "pending": "Menunggu",

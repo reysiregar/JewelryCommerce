@@ -28,7 +28,7 @@ export const products = pgTable("products", {
   price: integer("price").notNull(),
   category: text("category").notNull(),
   imageUrl: text("image_url").notNull(),
-  images: text("images").array().notNull(),
+  images: text("images").array().notNull().default(sql`ARRAY[]::text[]`),
   material: text("material").notNull(),
   isPreOrder: boolean("is_pre_order").notNull().default(false),
   inStock: boolean("in_stock").notNull().default(true),

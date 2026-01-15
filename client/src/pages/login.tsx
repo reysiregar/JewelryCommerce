@@ -64,7 +64,7 @@ export default function Login() {
         </form>
         <p className="text-center text-muted-foreground mt-6">
           {t('auth.login.noAccount')} {" "}
-          <Link href={returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register"}>{t('auth.login.registerLink')}</Link>
+          <Link href={returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register"} className="underline hover:text-foreground transition-colors">{t('auth.login.registerLink')}</Link>
         </p>
       </div>
     </div>

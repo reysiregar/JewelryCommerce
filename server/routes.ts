@@ -37,7 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   const setSessionCookie = (res: any, token: string) => {
-    const maxAge = 12 * 60 * 60;
+    const maxAge = 1 * 60 * 60; // 1 hour
     const cookie = `token=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`;
     res.setHeader("Set-Cookie", cookie);
   };

@@ -8,6 +8,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { CartSheet } from "@/components/cart-sheet";
+import { ScrollToTop } from "@/components/scroll-to-top";
 import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
@@ -25,12 +26,11 @@ import { ThemeProvider } from "@/lib/theme-context";
 
 function AppLayout() {
   const [location] = useLocation();
-  
-  // Only show footer on home and products pages (not on product detail)
   const showFooter = location === "/" || location.startsWith("/products");
 
   return (
     <div className="min-h-screen flex flex-col">
+      <ScrollToTop />
       <Header />
       <main className="flex-1">
         <Router />

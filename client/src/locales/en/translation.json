@@ -262,8 +262,8 @@
     "materialPlaceholder": "e.g. Sterling Silver",
     "imageUrlField": "Image URL",
     "imageUrlPlaceholder": "/assets/image.png",
-    "galleryImagesField": "Gallery Images (comma separated)",
-    "galleryImagesPlaceholder": "/img1.png, /img2.png",
+    "galleryImagesField": "Gallery Images",
+    "galleryImagesPlaceholder": "Upload additional product images",
     "descriptionField": "Description",
     "sizesField": "Sizes (comma separated or empty)",
     "sizesPlaceholder": "S,M,L or 5,6,7",
@@ -315,7 +315,7 @@
     "completed": "Completed",
     "productImage": "Product Image",
     "uploadImageText": "Click or drag image to upload (max 5MB)",
-    "galleryImagesNote": "Comma-separated URLs for additional images"
+    "galleryImagesNote": "Upload additional product images for the gallery"
   },
   "orderStatus": {
     "pending": "Pending",

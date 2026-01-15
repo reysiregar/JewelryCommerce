@@ -264,8 +264,8 @@
     "materialPlaceholder": "ej. Plata de Ley",
     "imageUrlField": "URL de Imagen",
     "imageUrlPlaceholder": "/assets/image.png",
-    "galleryImagesField": "Imágenes de Galería (separadas por comas)",
-    "galleryImagesPlaceholder": "/img1.png, /img2.png",
+    "galleryImagesField": "Imágenes de Galería",
+    "galleryImagesPlaceholder": "Subir imágenes adicionales del producto",
     "descriptionField": "Descripción",
     "sizesField": "Tallas (separadas por comas o vacío)",
     "sizesPlaceholder": "S,M,L o 5,6,7",
@@ -317,7 +317,7 @@
     "completed": "Completado",
     "productImage": "Imagen del Producto",
     "uploadImageText": "Haz clic o arrastra la imagen para subir (máx 5MB)",
-    "galleryImagesNote": "URLs separadas por comas para imágenes adicionales"
+    "galleryImagesNote": "Sube imágenes adicionales del producto para la galería"
   },
   "orderStatus": {
     "pending": "Pendiente",

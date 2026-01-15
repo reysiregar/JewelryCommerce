@@ -19,7 +19,9 @@ const FormSchema = insertProductSchema.extend({
   priceDisplay: z
     .string()
     .transform((v) => v.replace(/[^0-9]/g, ""))
-    .refine((v) => v.length > 0, { message: "Price is required" }),
+    .refine((v) => v.length > 0, { message: "Price is required" })
+    .refine((v) => parseInt(v, 10) > 0, { message: "Price must be greater than 0" }),
+  imageUrl: z.string().min(1, "Product image is required"),
 }).omit({ price: true });
 
 type FormValues = z.infer<typeof FormSchema> & { price?: number };
@@ -33,6 +35,8 @@ export default function AdminProductForm() {
   const [imagePreview, setImagePreview] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
 
   const { data: existing } = useQuery<Product>({
     queryKey: productId ? ["/api/products", productId] : ["/api/products", null],
@@ -80,38 +84,82 @@ export default function AdminProductForm() {
     if (existing?.imageUrl) {
       setImagePreview(existing.imageUrl);
     }
-  }, [existing]);
+    if (existing?.images && Array.isArray(existing.images)) {
+      setGalleryImages(existing.images);
+      setValue("images", existing.images as any);
+    }
+  }, [existing, setValue]);
 
-  const processImageFile = (file: File) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimensions to optimize storage
+          const maxWidth = 1200;
+          const maxHeight = 1200;
+          
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG with 0.85 quality
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(compressedBase64);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const processImageFile = async (file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({ title: 'Error', description: 'Please select an image file', variant: 'destructive' });
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Error', description: 'Image size must be less than 5MB', variant: 'destructive' });
+    // Validate file size (max 10MB before compression)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'Error', description: 'Image size must be less than 10MB', variant: 'destructive' });
       return;
     }
 
     setUploading(true);
     try {
-      // Convert to base64
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setValue('imageUrl', base64String);
-        setImagePreview(base64String);
-        setUploading(false);
-      };
-      reader.onerror = () => {
-        toast({ title: 'Error', description: 'Failed to read image file', variant: 'destructive' });
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to upload image', variant: 'destructive' });
+      const compressedBase64 = await compressImage(file);
+      setValue('imageUrl', compressedBase64, { shouldValidate: true });
+      setImagePreview(compressedBase64);
+      toast({ title: 'Success', description: 'Image uploaded and optimized successfully' });
+      setUploading(false);
+    } catch (error: any) {
+      console.error('Image processing error:', error);
+      toast({ 
+        title: 'Upload Failed', 
+        description: error.message || 'Failed to process image. Please try again.', 
+        variant: 'destructive' 
+      });
       setUploading(false);
     }
   };
@@ -150,6 +198,45 @@ export default function AdminProductForm() {
     setImagePreview('');
   };
 
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    setUploadingGallery(true);
+    try {
+      const newImages: string[] = [];
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+          toast({ title: 'Error', description: `${file.name} is not an image`, variant: 'destructive' });
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          toast({ title: 'Error', description: `${file.name} is too large (max 10MB)`, variant: 'destructive' });
+          continue;
+        }
+        
+        const compressed = await compressImage(file);
+        newImages.push(compressed);
+      }
+      
+      const updatedGallery = [...galleryImages, ...newImages];
+      setGalleryImages(updatedGallery);
+      setValue("images", updatedGallery as any, { shouldValidate: true });
+      toast({ title: 'Success', description: `${newImages.length} image(s) added to gallery` });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to upload gallery images', variant: 'destructive' });
+    } finally {
+      setUploadingGallery(false);
+      e.target.value = ''; // Reset input
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    const updated = galleryImages.filter((_, i) => i !== index);
+    setGalleryImages(updated);
+    setValue("images", updated as any, { shouldValidate: true });
+  };
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -162,12 +249,21 @@ export default function AdminProductForm() {
         price,
       };
       delete payload.priceDisplay;
+      
+      // Handle images array - ensure it's always an array
       if (typeof payload.images === "string") {
-        payload.images = payload.images.split(",").map((s: string) => s.trim()).filter(Boolean);
+        const parsed = payload.images.split(",").map((s: string) => s.trim()).filter(Boolean);
+        payload.images = parsed.length > 0 ? parsed : [];
+      } else if (!payload.images || !Array.isArray(payload.images)) {
+        payload.images = [];
       }
+      
+      // Handle sizes array
       if (typeof payload.sizes === "string") {
         const list = payload.sizes.split(",").map((s: string) => s.trim()).filter(Boolean);
         payload.sizes = list.length ? list : null;
+      } else if (!payload.sizes || payload.sizes.length === 0) {
+        payload.sizes = null;
       }
       const res = await fetch(isNew ? "/api/products" : `/api/products/${productId}` , {
         method: isNew ? "POST" : "PATCH",
@@ -223,7 +319,6 @@ export default function AdminProductForm() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Image Upload Section - Moved to Top */}
         <div className="border rounded-lg p-6 bg-card">
           <Label htmlFor="imageUpload" className="text-lg font-semibold mb-4 block">{t('admin.productImage')}</Label>
           <div className="space-y-4">
@@ -319,10 +414,62 @@ export default function AdminProductForm() {
             {errors.material && <p className="text-sm text-red-500 mt-1">{errors.material.message as any}</p>}
           </div>
           
+          {/* Gallery Images Upload Section */}
           <div>
-            <Label htmlFor="images">{t('admin.galleryImagesField')}</Label>
-            <Input id="images" placeholder={t('admin.galleryImagesPlaceholder')} {...register("images" as any)} />
-            <p className="text-xs text-muted-foreground mt-1">{t('admin.galleryImagesNote')}</p>
+            <Label className="text-base font-semibold mb-2 block">{t('admin.galleryImagesField')}</Label>
+            <p className="text-xs text-muted-foreground mb-3">{t('admin.galleryImagesNote')}</p>
+            
+            {/* Gallery Preview Grid */}
+            {galleryImages.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {galleryImages.map((img, idx) => (
+                  <div key={idx} className="relative aspect-square border rounded-lg overflow-hidden bg-accent group">
+                    <img src={img} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeGalleryImage(idx)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Upload Button */}
+            <div className="flex items-center justify-start">
+              <label htmlFor="galleryUpload" className="relative">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="cursor-pointer"
+                  disabled={uploadingGallery}
+                  asChild
+                >
+                  <span>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploadingGallery ? 'Uploading...' : 'Add Gallery Images'}
+                  </span>
+                </Button>
+                <Input
+                  id="galleryUpload"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleGalleryUpload}
+                  disabled={uploadingGallery}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </label>
+              {galleryImages.length > 0 && (
+                <span className="ml-3 text-xs text-muted-foreground">
+                  {galleryImages.length} image(s) in gallery
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

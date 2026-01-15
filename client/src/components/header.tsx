@@ -38,6 +38,15 @@ export function Header() {
     { path: "/products", label: t('header.products') },
   ];
 
+  const handleNavClick = (path: string, e: React.MouseEvent) => {
+    if (location === path) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      setLocation(path);
+    }
+  };
+
   const onSubmitSearch = (e: FormEvent) => {
     e.preventDefault();
     const q = searchQuery.trim();
@@ -70,8 +79,10 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 lg:px-8 lg:grid lg:grid-cols-[1fr_auto_1fr]">
         {/* Logo */}
-        <Link href="/" data-testid="link-home" className="justify-self-start">
+        <div className="justify-self-start">
           <h1
+            onClick={(e) => handleNavClick('/', e)}
+            data-testid="link-home"
             aria-hidden={searchOpen}
             className={`font-serif text-xl font-semibold tracking-tight lg:text-2xl cursor-pointer hover-elevate px-3 py-2 rounded-md transition-all duration-200 ${
               searchOpen ? "opacity-0 scale-95 pointer-events-none" : ""
@@ -79,22 +90,22 @@ export function Header() {
           >
             Lumière
           </h1>
-        </Link>
+        </div>
 
         {/* Desktop Navigation */}
         <nav className={`hidden lg:flex items-center gap-1 justify-self-center transition-all duration-200 ${searchOpen ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"}`}>
           {navLinks.map((link) => (
-            <Link key={link.path} href={link.path}>
-              <Button
-                variant="ghost"
-                data-testid={`link-${link.label.toLowerCase().replace(/\s+/g, '-')}`}
-                className={`font-medium text-sm ${
-                  location === link.path ? "text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {link.label}
-              </Button>
-            </Link>
+            <Button
+              key={link.path}
+              variant="ghost"
+              data-testid={`link-${link.label.toLowerCase().replace(/\s+/g, '-')}`}
+              className={`font-medium text-sm ${
+                location === link.path ? "text-foreground" : "text-muted-foreground"
+              }`}
+              onClick={(e) => handleNavClick(link.path, e)}
+            >
+              {link.label}
+            </Button>
           ))}
         </nav>
 
@@ -368,27 +379,29 @@ function MobileMenuContent({ panel, setPanel, close, navLinks, me, logout, locat
       <ul className="flex-1 overflow-auto">
         {/* Home */}
         <li>
-          <Link href="/">
-            <button
-              onClick={close}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left hover:bg-muted ${location === '/' ? 'font-semibold' : ''}`}
-            >
-              <HomeIcon className="h-5 w-5" />
-              <span className="flex-1">Home</span>
-            </button>
-          </Link>
+          <button
+            onClick={(e) => {
+              handleNavClick('/', e);
+              close();
+            }}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left hover:bg-muted ${location === '/' ? 'font-semibold' : ''}`}
+          >
+            <HomeIcon className="h-5 w-5" />
+            <span className="flex-1">Home</span>
+          </button>
         </li>
         {/* Products */}
         <li>
-          <Link href="/products">
-            <button
-              onClick={close}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left hover:bg-muted ${location === '/products' ? 'font-semibold' : ''}`}
-            >
-              <Gem className="h-5 w-5" />
-              <span className="flex-1">Products</span>
-            </button>
-          </Link>
+          <button
+            onClick={(e) => {
+              handleNavClick('/products', e);
+              close();
+            }}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left hover:bg-muted ${location === '/products' ? 'font-semibold' : ''}`}
+          >
+            <Gem className="h-5 w-5" />
+            <span className="flex-1">Products</span>
+          </button>
         </li>
         {/* Theme */}
         <li>

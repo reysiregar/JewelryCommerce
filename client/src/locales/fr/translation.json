@@ -264,8 +264,8 @@
     "materialPlaceholder": "ex. Argent Sterling",
     "imageUrlField": "URL de l'Image",
     "imageUrlPlaceholder": "/assets/image.png",
-    "galleryImagesField": "Images de Galerie (séparées par des virgules)",
-    "galleryImagesPlaceholder": "/img1.png, /img2.png",
+    "galleryImagesField": "Images de Galerie",
+    "galleryImagesPlaceholder": "Télécharger des images supplémentaires du produit",
     "descriptionField": "Description",
     "sizesField": "Tailles (séparées par des virgules ou vide)",
     "sizesPlaceholder": "S,M,L ou 5,6,7",
@@ -317,7 +317,7 @@
     "completed": "Terminé",
     "productImage": "Image du produit",
     "uploadImageText": "Cliquez ou faites glisser l'image pour télécharger (max 5 Mo)",
-    "galleryImagesNote": "URLs séparées par des virgules pour les images supplémentaires"
+    "galleryImagesNote": "Téléchargez des images supplémentaires du produit pour la galerie"
   },
   "orderStatus": {
     "pending": "En attente",
