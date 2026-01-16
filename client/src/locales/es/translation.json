@@ -103,6 +103,8 @@
   "checkout": {
     "title": "Finalizar Compra",
     "shippingInfo": "Información de Envío",
+    "shippingAddress": "Dirección de Envío",
+    "shippingType": "Método de Envío",
     "paymentInfo": "Información de Pago",
     "orderSummary": "Resumen del Pedido",
     "fullName": "Nombre Completo",
@@ -127,7 +129,8 @@
     "simulatedPayment": "Pago Simulado",
     "demoPaymentNote": "Esta es una demostración. No se procesará ningún pago real.",
     "qty": "Cant",
-    "shipping": "Envío",
+    "shippingLabel": "Envío",
+    "free": "GRATIS",
     "freeShipping": "Gratis",
     "containsPreOrder": "Contiene artículos de pre-pedido",
     "placeOrder": "Realizar Pedido",
@@ -139,7 +142,26 @@
     "errorMessage": "Algo salió mal",
     "addItemsMessage": "Por favor agregue artículos a su carrito primero",
     "orderID": "ID de Pedido",
-    "orderDetails": "Detalles del Pedido"
+    "orderDetails": "Detalles del Pedido",
+    "shipping": {
+      "instant": {
+        "title": "Entrega Instantánea",
+        "description": "Entregado en 1-2 horas"
+      },
+      "express": {
+        "title": "Entrega Exprés",
+        "description": "Entregado en 1-2 días"
+      },
+      "inStore": {
+        "title": "Recogida en Tienda",
+        "description": "Pida en línea, recoja en tienda con recibo"
+      },
+      "free": {
+        "title": "Envío Premium Gratis",
+        "description": "Pedidos superiores a Rp 10.000.000 - Entrega white glove con protección extra y servicio prioritario",
+        "requirement": "Se requiere un pedido mínimo de Rp 10.000.000"
+      }
+    }
   },
   "auth": {
     "login": {
@@ -276,7 +298,10 @@
     "no": "No",
     "yes": "Sí",
     "createProduct": "Crear Producto",
+    "creatingProduct": "Creando...",
     "saveChanges": "Guardar Cambios",
+    "savingChanges": "Guardando...",
+    "deleting": "Eliminando...",
     "productSaved": "Producto guardado",
     "saveFailed": "Error al guardar",
     "manageOrdersTitle": "Gestionar Pedidos",

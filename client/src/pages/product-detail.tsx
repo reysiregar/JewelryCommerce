@@ -10,11 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Minus, Plus, ShoppingBag } from "lucide-react";
 import type { Product } from "@shared/schema";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "wouter";
+import { sanitizeImageUrl } from "@/lib/image-utils";
 
 export default function ProductDetail() {
   const { t } = useTranslation();
@@ -28,6 +29,7 @@ export default function ProductDetail() {
 
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const { addToCart, toggleCart } = useCart();
   const { toast } = useToast();
   const { me } = useAuth();
@@ -37,6 +39,13 @@ export default function ProductDetail() {
   const from = paramsSearch.get("from");
   const backHref = from === "admin" ? "/admin" : "/products";
   const backLabel = from === "admin" ? t('common.back') + " to " + t('header.dashboard') : t('productDetail.backToProducts');
+
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [product?.id]);
+  
+  // Validate and sanitize image URL
+  const imageUrl = sanitizeImageUrl(product?.imageUrl);
 
   if (isLoading) {
     return (
@@ -113,25 +122,46 @@ export default function ProductDetail() {
         <div className="grid md:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
           {/* Images */}
           <div className="space-y-3 sm:space-y-4">
-            <div className="aspect-square overflow-hidden rounded-md bg-accent">
+            <div className="relative aspect-square overflow-hidden rounded-md bg-accent">
+              {!imageLoaded && (
+                <Skeleton className="absolute inset-0 w-full h-full" />
+              )}
               <img
-                src={product.imageUrl}
+                src={imageUrl}
                 alt={product.name}
-                className="h-full w-full object-contain"
+                className={`h-full w-full object-contain transition-opacity duration-300 ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
                 data-testid="img-product-main"
+                onLoad={() => setImageLoaded(true)}
+                onError={(e) => {
+                  const currentSrc = e.currentTarget.src;
+                  if (currentSrc.endsWith('/favicon.png') || currentSrc.includes('favicon')) {
+                    setImageLoaded(true);
+                    return;
+                  }
+                  e.currentTarget.src = "/favicon.png";
+                  setImageLoaded(true);
+                }}
               />
             </div>
-            {product.images && product.images.length > 1 && (
+            {product.images && product.images.length > 0 && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-4">
-                {product.images.slice(1).map((img, idx) => (
+                {product.images.map((img, idx) => (
                   <div
                     key={idx}
                     className="aspect-square overflow-hidden rounded-md bg-accent cursor-pointer hover-elevate"
                   >
                     <img
-                      src={img}
+                      src={img || "/favicon.png"}
                       alt={`${product.name} view ${idx + 2}`}
                       className="h-full w-full object-contain"
+                      onError={(e) => {
+                        const currentSrc = e.currentTarget.src;
+                        if (!currentSrc.endsWith('/favicon.png') && !currentSrc.includes('favicon')) {
+                          e.currentTarget.src = "/favicon.png";
+                        }
+                      }}
                     />
                   </div>
                 ))}

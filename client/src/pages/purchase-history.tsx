@@ -29,6 +29,7 @@ interface Order {
   shippingCity: string;
   shippingPostalCode: string;
   shippingCountry: string;
+  shippingType: string;
   totalAmount: number;
   status: string;
   isPreOrder: boolean;
@@ -228,7 +229,7 @@ export default function PurchaseHistory() {
                   disabled={downloadReceiptMutation.isPending}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  {t('common.submit')}
+                  {t('dashboard.downloadReceipt')}
                 </Button>
               </div>
             </Card>
@@ -271,10 +272,27 @@ export default function PurchaseHistory() {
 
               <div className="border-t pt-4">
                 <h3 className="font-medium mb-2">{t('checkout.shippingInfo')}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {selectedOrder.shippingAddress}, {selectedOrder.shippingCity} {selectedOrder.shippingPostalCode},
-                  {selectedOrder.shippingCountry}
-                </p>
+                <div className="space-y-1">
+                  {selectedOrder.shippingType && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t('checkout.shippingType')}</p>
+                      <p className="text-sm font-medium">
+                        {selectedOrder.shippingType === "instant" ? t('checkout.shipping.instant.title', { defaultValue: "Instant Delivery" })
+                        : selectedOrder.shippingType === "express" ? t('checkout.shipping.express.title', { defaultValue: "Express Delivery" })
+                        : selectedOrder.shippingType === "prioritize" ? t('checkout.shipping.prioritize.title', { defaultValue: "Prioritize Delivery" })
+                        : selectedOrder.shippingType === "free" ? t('checkout.shipping.free.title', { defaultValue: "Premium Free Shipping" })
+                        : selectedOrder.shippingType.charAt(0).toUpperCase() + selectedOrder.shippingType.slice(1).replace(/-/g, ' ')}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-muted-foreground mt-2">{t('checkout.address')}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedOrder.shippingAddress}, {selectedOrder.shippingCity} {selectedOrder.shippingPostalCode},
+                      {selectedOrder.shippingCountry}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="border-t pt-4">
@@ -319,7 +337,7 @@ export default function PurchaseHistory() {
                   disabled={downloadReceiptMutation.isPending}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  {t('common.submit')}
+                  {t('dashboard.downloadReceipt')}
                 </Button>
               </div>
             </div>

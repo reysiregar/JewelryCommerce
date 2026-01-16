@@ -21,7 +21,7 @@ export default function OrderSuccess() {
         <p className="text-muted-foreground mb-8">
           {t('checkout.thankYouMessage')}
         </p>
-        <div className="space-y-3">
+        <div className="flex flex-col gap-2">
           <Link href="/purchase-history">
             <Button className="w-full" data-testid="button-view-orders">
               <Receipt className="h-4 w-4 mr-2" />

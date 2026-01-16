@@ -103,6 +103,8 @@
   "checkout": {
     "title": "Checkout",
     "shippingInfo": "Shipping Information",
+    "shippingAddress": "Shipping Address",
+    "shippingType": "Shipping Method",
     "paymentInfo": "Payment Information",
     "orderSummary": "Order Summary",
     "fullName": "Full Name",
@@ -127,7 +129,8 @@
     "simulatedPayment": "Simulated Payment",
     "demoPaymentNote": "This is a demo. No real payment will be processed.",
     "qty": "Qty",
-    "shipping": "Shipping",
+    "shippingLabel": "Shipping",
+    "free": "FREE",
     "freeShipping": "Free",
     "containsPreOrder": "Contains pre-order items",
     "placeOrder": "Place Order",
@@ -139,7 +142,26 @@
     "errorMessage": "Something went wrong",
     "addItemsMessage": "Please add items to your cart first",
     "orderID": "Order ID",
-    "orderDetails": "Order Details"
+    "orderDetails": "Order Details",
+    "shipping": {
+      "instant": {
+        "title": "Instant Delivery",
+        "description": "Delivered in 1-2 hours"
+      },
+      "express": {
+        "title": "Express Delivery",
+        "description": "Delivered in 1-2 days"
+      },
+      "inStore": {
+        "title": "In-Store Pickup",
+        "description": "Order online, pick up at store with receipt"
+      },
+      "free": {
+        "title": "Premium Free Shipping",
+        "description": "Orders over Rp 10,000,000 - White glove delivery with extra protection & priority service",
+        "requirement": "Minimum order of Rp 10,000,000 required"
+      }
+    }
   },
   "auth": {
     "login": {
@@ -274,7 +296,10 @@
     "no": "No",
     "yes": "Yes",
     "createProduct": "Create Product",
+    "creatingProduct": "Creating...",
     "saveChanges": "Save Changes",
+    "savingChanges": "Saving...",
+    "deleting": "Deleting...",
     "productSaved": "Product saved",
     "saveFailed": "Save failed",
     "manageOrdersTitle": "Manage Orders",

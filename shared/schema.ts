@@ -43,6 +43,8 @@ export const products = pgTable("products", {
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
+}).extend({
+  sizes: z.array(z.string()).nullable().optional(),
 });
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -76,6 +78,7 @@ export const orders = pgTable("orders", {
   shippingCity: text("shipping_city").notNull(),
   shippingPostalCode: text("shipping_postal_code").notNull(),
   shippingCountry: text("shipping_country").notNull(),
+  shippingType: text("shipping_type").notNull().default("express"),
   totalAmount: integer("total_amount").notNull(),
   status: text("status").notNull().default("pending"),
   isPreOrder: boolean("is_pre_order").notNull().default(false),
@@ -121,6 +124,9 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   customerEmail: z.string().email("Invalid email address"),
   customerPhone: z.string().min(10, "Phone number must be at least 10 characters"),
   shippingPostalCode: z.string().min(5, "Postal code must be at least 5 characters"),
+  shippingType: z.enum(["instant", "express", "prioritize", "free"], {
+    required_error: "Please select a shipping type",
+  }),
 });
 
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({

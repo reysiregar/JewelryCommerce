@@ -199,6 +199,7 @@ export default function AdminDashboard() {
                         title={t('admin.deleteProductTitle')}
                         description={t('admin.deleteProductDescription', { name: p.name })}
                         confirmLabel={t('admin.delete')}
+                        loadingText={t('admin.deleting') || 'Deleting...'}
                         onConfirm={() => deleteMutation.mutate(p.id)}
                       >
                         <Button size="sm" variant="destructive">{t('admin.delete')}</Button>
@@ -240,6 +241,7 @@ export default function AdminDashboard() {
                     title={t('admin.deleteProductTitle')}
                     description={t('admin.deleteProductDescription', { name: p.name })}
                     confirmLabel={t('admin.delete')}
+                    loadingText={t('admin.deleting') || 'Deleting...'}
                     onConfirm={() => deleteMutation.mutate(p.id)}
                   >
                     <Button size="sm" variant="destructive" className="flex-1">{t('admin.delete')}</Button>

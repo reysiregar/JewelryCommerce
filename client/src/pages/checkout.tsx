@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -15,7 +16,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, CreditCard, Shield, Loader2 } from "lucide-react";
+import { ArrowLeft, CreditCard, Shield, Loader2, Truck, Zap, Store, Gift } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
 
@@ -85,19 +86,50 @@ export default function Checkout() {
   const form = useForm<CheckoutFormData>({
     resolver: zodResolver(insertOrderSchema),
     defaultValues: {
-      customerName: "",
-      customerEmail: "",
+      customerName: me?.name || "",
+      customerEmail: me?.email || "",
       customerPhone: "",
       shippingAddress: "",
       shippingCity: "",
       shippingPostalCode: "",
       shippingCountry: "Indonesia",
+      shippingType: "express",
       totalAmount: 0,
       status: "pending",
       isPreOrder: false,
       paymentStatus: "pending",
     },
   });
+
+  // Auto-fill name and email when user data is available
+  useEffect(() => {
+    if (me) {
+      form.setValue("customerName", me.name);
+      form.setValue("customerEmail", me.email);
+    }
+  }, [me, form]);
+
+  // Watch shippingType for real-time updates
+  const selectedShippingType = form.watch("shippingType");
+
+  // Calculate shipping cost based on type
+  const calculateShippingCost = (type: string): number => {
+    switch (type) {
+      case "instant":
+        return 25000000; // Rp 250,000
+      case "express":
+        return 10000000; // Rp 100,000
+      case "prioritize":
+        return 0;
+      case "free":
+        return totalPrice >= 1000000000 ? 0 : 10000000; // Free if over Rp 10,000,000
+      default:
+        return 10000000;
+    }
+  };
+
+  const shippingCost = calculateShippingCost(selectedShippingType);
+  const isFreeShippingEligible = totalPrice >= 1000000000;
 
   const createOrderMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -159,7 +191,6 @@ export default function Checkout() {
     minimumFractionDigits: 0,
   }).format(totalPrice / 100);
 
-  const shippingCost = totalPrice >= 100000000 ? 0 : 5000000;
   const formattedShipping = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -261,6 +292,104 @@ export default function Checkout() {
                       )}
                     />
                   </div>
+                </Card>
+
+                <Card className="p-6">
+                  <h2 className="font-serif text-xl mb-4">{t("checkout.shippingType", { defaultValue: "Shipping Method" })}</h2>
+                  <FormField
+                    control={form.control}
+                    name="shippingType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <RadioGroup
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="space-y-3"
+                          >
+                            {/* Instant Delivery */}
+                            <div className="flex items-start space-x-3 border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
+                              <RadioGroupItem value="instant" id="instant" />
+                              <label htmlFor="instant" className="flex-1 cursor-pointer">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Zap className="h-4 w-4 text-yellow-500" />
+                                  <span className="font-medium">{t("checkout.shipping.instant.title", { defaultValue: "Instant Delivery" })}</span>
+                                  <Badge variant="secondary" className="ml-auto">Rp 250,000</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {t("checkout.shipping.instant.description", { defaultValue: "Delivered in 1-2 hours" })}
+                                </p>
+                              </label>
+                            </div>
+
+                            {/* Express Delivery */}
+                            <div className="flex items-start space-x-3 border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
+                              <RadioGroupItem value="express" id="express" />
+                              <label htmlFor="express" className="flex-1 cursor-pointer">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Truck className="h-4 w-4 text-blue-500" />
+                                  <span className="font-medium">{t("checkout.shipping.express.title", { defaultValue: "Express Delivery" })}</span>
+                                  <Badge variant="secondary" className="ml-auto">Rp 100,000</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {t("checkout.shipping.express.description", { defaultValue: "Delivered in 1-2 days" })}
+                                </p>
+                              </label>
+                            </div>
+
+                            {/* Prioritize Delivery */}
+                            <div className="flex items-start space-x-3 border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
+                              <RadioGroupItem value="prioritize" id="prioritize" />
+                              <label htmlFor="prioritize" className="flex-1 cursor-pointer">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Store className="h-4 w-4 text-green-500" />
+                                  <span className="font-medium">{t("checkout.shipping.prioritize.title", { defaultValue: "Prioritize Delivery" })}</span>
+                                  <Badge variant="secondary" className="ml-auto">{t("checkout.free", { defaultValue: "FREE" })}</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {t("checkout.shipping.prioritize.description", { defaultValue: "Priority handling with expedited processing" })}
+                                </p>
+                              </label>
+                            </div>
+
+                            {/* Free Shipping */}
+                            <div className={`flex items-start space-x-3 border rounded-lg p-4 transition-colors ${
+                              isFreeShippingEligible 
+                                ? "hover:border-primary cursor-pointer" 
+                                : "opacity-50 cursor-not-allowed"
+                            }`}>
+                              <RadioGroupItem 
+                                value="free" 
+                                id="free" 
+                                disabled={!isFreeShippingEligible}
+                              />
+                              <label 
+                                htmlFor="free" 
+                                className={`flex-1 ${isFreeShippingEligible ? "cursor-pointer" : "cursor-not-allowed"}`}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Gift className="h-4 w-4 text-purple-500" />
+                                  <span className="font-medium">{t("checkout.shipping.free.title", { defaultValue: "Premium Free Shipping" })}</span>
+                                  <Badge variant="secondary" className="ml-auto">{t("checkout.free", { defaultValue: "FREE" })}</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {t("checkout.shipping.free.description", { defaultValue: "Orders over Rp 10,000,000 - White glove delivery with extra protection & priority service" })}
+                                </p>
+                                {!isFreeShippingEligible && (
+                                  <p className="text-xs text-destructive mt-1">
+                                    {t("checkout.shipping.free.requirement", { 
+                                      defaultValue: "Minimum order of Rp 10,000,000 required" 
+                                    })}
+                                  </p>
+                                )}
+                              </label>
+                            </div>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </Card>
 
                 <Card className="p-6">
@@ -400,8 +529,20 @@ export default function Checkout() {
                   <span>{formattedTotal}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>{t("checkout.shipping", { defaultValue: "Shipping" })}</span>
-                  <span>{shippingCost === 0 ? t("checkout.freeShipping", { defaultValue: "FREE" }) : formattedShipping}</span>
+                  <div className="flex flex-col">
+                    <span>{t("checkout.shippingLabel", { defaultValue: "Shipping" })}</span>
+                    {selectedShippingType && (
+                      <span className="text-xs text-muted-foreground">
+                        {selectedShippingType === "instant" && t("checkout.shipping.instant.title", { defaultValue: "Instant Delivery" })}
+                        {selectedShippingType === "express" && t("checkout.shipping.express.title", { defaultValue: "Express Delivery" })}
+                        {selectedShippingType === "prioritize" && t("checkout.shipping.prioritize.title", { defaultValue: "Prioritize Delivery" })}
+                        {selectedShippingType === "free" && t("checkout.shipping.free.title", { defaultValue: "Premium Free Shipping" })}
+                      </span>
+                    )}
+                  </div>
+                  <span className={shippingCost === 0 ? "text-green-600 font-medium" : ""}>
+                    {shippingCost === 0 ? t("checkout.free", { defaultValue: "FREE" }) : formattedShipping}
+                  </span>
                 </div>
               </div>
 

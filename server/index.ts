@@ -12,11 +12,12 @@ declare module 'http' {
   }
 }
 app.use(express.json({
+  limit: '50mb',
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
 }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ limit: '50mb', extended: false }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -82,6 +83,10 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
   }, () => {
+    // Increase header size limits to handle large base64 images
+    server.maxHeadersCount = 0;
+    (server as any).maxRequestsPerSocket = 0;
+    
     log(`serving on port ${port}`);
     log(`server running in ${app.get("env")} mode`);
     log(`Open http://localhost:${port} in your browser to view the app`);

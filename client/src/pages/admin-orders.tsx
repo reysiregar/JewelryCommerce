@@ -36,6 +36,7 @@ interface Order {
   shippingCity: string;
   shippingPostalCode: string;
   shippingCountry: string;
+  shippingType: string;
   totalAmount: number;
   status: string;
   isPreOrder: boolean;
@@ -387,12 +388,29 @@ export default function AdminOrders() {
               {/* Shipping Info */}
               <div className="border-t pt-4">
                 <h3 className="font-medium mb-3">{t('admin.shippingAddress')}</h3>
-                <div className="text-sm text-muted-foreground">
-                  <p>{selectedOrder.shippingAddress}</p>
-                  <p>
-                    {selectedOrder.shippingCity}, {selectedOrder.shippingPostalCode}
-                  </p>
-                  <p>{selectedOrder.shippingCountry}</p>
+                <div className="space-y-2">
+                  {selectedOrder.shippingType && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t('checkout.shippingType')}</p>
+                      <p className="text-sm font-medium">
+                        {selectedOrder.shippingType === "instant" ? t('checkout.shipping.instant.title', { defaultValue: "Instant Delivery" })
+                        : selectedOrder.shippingType === "express" ? t('checkout.shipping.express.title', { defaultValue: "Express Delivery" })
+                        : selectedOrder.shippingType === "prioritize" ? t('checkout.shipping.prioritize.title', { defaultValue: "Prioritize Delivery" })
+                        : selectedOrder.shippingType === "free" ? t('checkout.shipping.free.title', { defaultValue: "Premium Free Shipping" })
+                        : selectedOrder.shippingType.charAt(0).toUpperCase() + selectedOrder.shippingType.slice(1).replace(/-/g, ' ')}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-muted-foreground">{t('checkout.address')}</p>
+                    <div className="text-sm text-muted-foreground">
+                      <p>{selectedOrder.shippingAddress}</p>
+                      <p>
+                        {selectedOrder.shippingCity}, {selectedOrder.shippingPostalCode}
+                      </p>
+                      <p>{selectedOrder.shippingCountry}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 

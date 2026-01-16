@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Loader2 } from "lucide-react";
 
 const FormSchema = insertProductSchema.extend({
   priceDisplay: z
@@ -22,6 +22,7 @@ const FormSchema = insertProductSchema.extend({
     .refine((v) => v.length > 0, { message: "Price is required" })
     .refine((v) => parseInt(v, 10) > 0, { message: "Price must be greater than 0" }),
   imageUrl: z.string().min(1, "Product image is required"),
+  sizes: z.union([z.array(z.string()), z.string(), z.null()]).optional(),
 }).omit({ price: true });
 
 type FormValues = z.infer<typeof FormSchema> & { price?: number };
@@ -97,32 +98,69 @@ export default function AdminProductForm() {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
           
-          // Max dimensions to optimize storage
-          const maxWidth = 1200;
-          const maxHeight = 1200;
+          // Target square dimensions for product images
+          const targetSize = 600;
+          canvas.width = targetSize;
+          canvas.height = targetSize;
           
-          if (width > height) {
-            if (width > maxWidth) {
-              height *= maxWidth / width;
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width *= maxHeight / height;
-              height = maxHeight;
-            }
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
           }
           
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
+          // Calculate dimensions for center crop
+          const imgWidth = img.width;
+          const imgHeight = img.height;
+          const imgAspect = imgWidth / imgHeight;
           
-          // Compress to JPEG with 0.85 quality
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+          let sourceX = 0;
+          let sourceY = 0;
+          let sourceWidth = imgWidth;
+          let sourceHeight = imgHeight;
+          
+          // Auto-crop to square from center
+          if (imgAspect > 1) {
+            // Landscape: crop sides
+            sourceWidth = imgHeight;
+            sourceX = (imgWidth - imgHeight) / 2;
+          } else if (imgAspect < 1) {
+            // Portrait: crop top/bottom
+            sourceHeight = imgWidth;
+            sourceY = (imgHeight - imgWidth) / 2;
+          }
+          
+          // Fill with white background first
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, targetSize, targetSize);
+          
+          // Draw cropped image centered on canvas
+          ctx.drawImage(
+            img,
+            sourceX, sourceY, sourceWidth, sourceHeight,
+            0, 0, targetSize, targetSize
+          );
+          
+          // Start with aggressive compression
+          let quality = 0.7;
+          let compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          let sizeInBytes = (compressedBase64.length * 3) / 4;
+          
+          // Keep reducing quality until under 500KB
+          const maxSizeBytes = 500 * 1024;
+          while (sizeInBytes > maxSizeBytes && quality > 0.3) {
+            quality -= 0.05;
+            compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+            sizeInBytes = (compressedBase64.length * 3) / 4;
+          }
+          
+          // If still too large, reject
+          if (sizeInBytes > 1024 * 1024) {
+            reject(new Error('Image is too large even after compression. Please use a smaller image.'));
+            return;
+          }
+          
           resolve(compressedBase64);
         };
         img.onerror = () => reject(new Error('Failed to load image'));
@@ -147,11 +185,12 @@ export default function AdminProductForm() {
     }
 
     setUploading(true);
+    toast({ title: 'Processing...', description: 'Auto-cropping and optimizing your image' });
     try {
       const compressedBase64 = await compressImage(file);
       setValue('imageUrl', compressedBase64, { shouldValidate: true });
       setImagePreview(compressedBase64);
-      toast({ title: 'Success', description: 'Image uploaded and optimized successfully' });
+      toast({ title: 'Success', description: 'Image auto-cropped to square and optimized' });
       setUploading(false);
     } catch (error: any) {
       console.error('Image processing error:', error);
@@ -202,10 +241,20 @@ export default function AdminProductForm() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     
+    // Limit total gallery images to prevent large payloads
+    const maxGalleryImages = 5;
+    if (galleryImages.length >= maxGalleryImages) {
+      toast({ title: 'Error', description: `Maximum ${maxGalleryImages} gallery images allowed`, variant: 'destructive' });
+      return;
+    }
+    
+    const remainingSlots = maxGalleryImages - galleryImages.length;
+    const filesToUpload = files.slice(0, remainingSlots);
+    
     setUploadingGallery(true);
     try {
       const newImages: string[] = [];
-      for (const file of files) {
+      for (const file of filesToUpload) {
         if (!file.type.startsWith('image/')) {
           toast({ title: 'Error', description: `${file.name} is not an image`, variant: 'destructive' });
           continue;
@@ -223,6 +272,10 @@ export default function AdminProductForm() {
       setGalleryImages(updatedGallery);
       setValue("images", updatedGallery as any, { shouldValidate: true });
       toast({ title: 'Success', description: `${newImages.length} image(s) added to gallery` });
+      
+      if (files.length > remainingSlots) {
+        toast({ title: 'Notice', description: `Only ${remainingSlots} images uploaded (max ${maxGalleryImages} total)`, variant: 'default' });
+      }
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to upload gallery images', variant: 'destructive' });
     } finally {
@@ -507,7 +560,10 @@ export default function AdminProductForm() {
           </div>
 
           <div className="pt-4 flex gap-2">
-            <Button type="submit" disabled={isSubmitting}>{isNew ? t('admin.createProduct') : t('admin.saveChanges')}</Button>
+            <Button type="submit" disabled={isSubmitting || uploading || uploadingGallery}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting ? (isNew ? t('admin.creatingProduct') || 'Creating...' : t('admin.savingChanges') || 'Saving...') : (isNew ? t('admin.createProduct') : t('admin.saveChanges'))}
+            </Button>
             <Link href="/admin"><Button type="button" variant="outline">{t('common.cancel')}</Button></Link>
           </div>
         </div>

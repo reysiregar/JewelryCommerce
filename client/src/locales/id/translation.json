@@ -103,6 +103,8 @@
   "checkout": {
     "title": "Pembayaran",
     "shippingInfo": "Informasi Pengiriman",
+    "shippingAddress": "Alamat Pengiriman",
+    "shippingType": "Metode Pengiriman",
     "paymentInfo": "Informasi Pembayaran",
     "orderSummary": "Ringkasan Pesanan",
     "fullName": "Nama Lengkap",
@@ -127,7 +129,8 @@
     "simulatedPayment": "Pembayaran Simulasi",
     "demoPaymentNote": "Ini adalah demo. Tidak ada pembayaran nyata yang akan diproses.",
     "qty": "Jml",
-    "shipping": "Pengiriman",
+    "shippingLabel": "Pengiriman",
+    "free": "GRATIS",
     "freeShipping": "Gratis",
     "containsPreOrder": "Berisi item pra-pesan",
     "placeOrder": "Buat Pesanan",
@@ -139,7 +142,26 @@
     "errorMessage": "Terjadi kesalahan",
     "addItemsMessage": "Silakan tambahkan item ke keranjang terlebih dahulu",
     "orderID": "ID Pesanan",
-    "orderDetails": "Detail Pesanan"
+    "orderDetails": "Detail Pesanan",
+    "shipping": {
+      "instant": {
+        "title": "Pengiriman Instan",
+        "description": "Dikirim dalam 1-2 jam"
+      },
+      "express": {
+        "title": "Pengiriman Ekspres",
+        "description": "Dikirim dalam 1-2 hari"
+      },
+      "inStore": {
+        "title": "Ambil di Toko",
+        "description": "Pesan online, ambil di toko dengan menunjukkan struk"
+      },
+      "free": {
+        "title": "Pengiriman Premium Gratis",
+        "description": "Pesanan di atas Rp 10.000.000 - Pengiriman white glove dengan perlindungan ekstra & layanan prioritas",
+        "requirement": "Pesanan minimal Rp 10.000.000 diperlukan"
+      }
+    }
   },
   "auth": {
     "login": {
@@ -276,7 +298,10 @@
     "no": "Tidak",
     "yes": "Ya",
     "createProduct": "Buat Produk",
+    "creatingProduct": "Membuat...",
     "saveChanges": "Simpan Perubahan",
+    "savingChanges": "Menyimpan...",
+    "deleting": "Menghapus...",
     "productSaved": "Produk disimpan",
     "saveFailed": "Penyimpanan gagal",
     "manageOrdersTitle": "Kelola Pesanan",

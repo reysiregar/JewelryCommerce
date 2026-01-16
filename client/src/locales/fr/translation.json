@@ -103,6 +103,8 @@
   "checkout": {
     "title": "Finaliser l'achat",
     "shippingInfo": "Informations de livraison",
+    "shippingAddress": "Adresse de livraison",
+    "shippingType": "Méthode de livraison",
     "paymentInfo": "Informations de paiement",
     "orderSummary": "Résumé de la commande",
     "fullName": "Nom complet",
@@ -127,7 +129,8 @@
     "simulatedPayment": "Paiement simulé",
     "demoPaymentNote": "Ceci est une démonstration. Aucun paiement réel ne sera traité.",
     "qty": "Qté",
-    "shipping": "Livraison",
+    "shippingLabel": "Livraison",
+    "free": "GRATUIT",
     "freeShipping": "Gratuite",
     "containsPreOrder": "Contient des articles en pré-commande",
     "placeOrder": "Passer la commande",
@@ -139,7 +142,26 @@
     "errorMessage": "Quelque chose s'est mal passé",
     "addItemsMessage": "Veuillez d'abord ajouter des articles à votre panier",
     "orderID": "ID de Commande",
-    "orderDetails": "Détails de la Commande"
+    "orderDetails": "Détails de la Commande",
+    "shipping": {
+      "instant": {
+        "title": "Livraison Instantanée",
+        "description": "Livré en 1-2 heures"
+      },
+      "express": {
+        "title": "Livraison Express",
+        "description": "Livré en 1-2 jours"
+      },
+      "inStore": {
+        "title": "Retrait en Magasin",
+        "description": "Commandez en ligne, retirez en magasin avec reçu"
+      },
+      "free": {
+        "title": "Livraison Premium Gratuite",
+        "description": "Commandes supérieures à Rp 10.000.000 - Livraison white glove avec protection supplémentaire et service prioritaire",
+        "requirement": "Commande minimale de Rp 10.000.000 requise"
+      }
+    }
   },
   "auth": {
     "login": {
@@ -275,8 +297,11 @@
     "preOrderField": "Pré-commande",
     "no": "Non",
     "yes": "Oui",
-    "createProduct": "Créer le Produit",
+    "createProduct": "Créer un Produit",
+    "creatingProduct": "Création...",
     "saveChanges": "Enregistrer les Modifications",
+    "savingChanges": "Enregistrement...",
+    "deleting": "Suppression...",
     "productSaved": "Produit enregistré",
     "saveFailed": "Échec de l'enregistrement",
     "manageOrdersTitle": "Gérer les Commandes",

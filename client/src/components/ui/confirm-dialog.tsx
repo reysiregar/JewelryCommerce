@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConfirmProps {
@@ -75,6 +75,7 @@ export function Confirm({
               className={cn("bg-destructive text-destructive-foreground hover:bg-destructive/90", confirmClassName)}
               disabled={loading}
             >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? loadingText : confirmLabel}
             </Button>
           </div>

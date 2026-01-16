@@ -47,7 +47,6 @@ export default function Register() {
       setName("");
       setEmail("");
       setPassword("");
-      // Redirect to login page after successful registration
       setLocation(returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login");
     } finally {
       setLoading(false);

@@ -1,8 +1,11 @@
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Product } from "@shared/schema";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
+import { sanitizeImageUrl } from "@/lib/image-utils";
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +13,10 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const { t } = useTranslation();
+  const [imageLoaded, setImageLoaded] = useState(false);
+  
+  const imageUrl = sanitizeImageUrl(product.imageUrl);
+  
   const formattedPrice = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -23,14 +30,25 @@ export function ProductCard({ product }: ProductCardProps) {
         className="group overflow-hidden border hover-elevate active-elevate-2 cursor-pointer transition-all duration-300"
       >
         <div className="relative aspect-square overflow-hidden bg-accent">
+          {!imageLoaded && (
+            <Skeleton className="absolute inset-0 w-full h-full" />
+          )}
           <img
-            src={product.imageUrl}
+            src={imageUrl}
             alt={product.name}
-            className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+            className={`h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.02] ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
             data-testid={`img-product-${product.id}`}
+            onLoad={() => setImageLoaded(true)}
             onError={(e) => {
-              if (e.currentTarget.src.endsWith('/favicon.png')) return;
+              const currentSrc = e.currentTarget.src;
+              if (currentSrc.endsWith('/favicon.png') || currentSrc.includes('favicon')) {
+                setImageLoaded(true);
+                return;
+              }
               e.currentTarget.src = "/favicon.png";
+              setImageLoaded(true);
             }}
           />
           {product.isPreOrder && (

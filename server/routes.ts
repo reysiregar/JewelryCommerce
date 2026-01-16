@@ -16,6 +16,12 @@ const LOCKOUT_MINUTES = 15;
 export async function registerRoutes(app: Express): Promise<Server> {
   const normalizeAssetUrl = (url?: string) => {
     if (!url) return url as any;
+    
+    // Don't normalize data URLs or HTTP(S) URLs
+    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
     let u = url.replace(/^\/?assets\/generated_images\//, "/");
     if (!u.startsWith("/")) u = `/${u}`;
     return u;
@@ -330,7 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || user.role !== "admin") return res.status(401).json({ message: "Unauthorized" });
       const validated = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(validated);
-      res.status(201).json(product);
+      res.status(201).json(normalizeProduct(product));
     } catch (error: any) {
       res.status(400).json({ message: "Invalid product data", error: error.message });
     }
@@ -346,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const updated = await storage.updateProduct(req.params.id, partial.data);
       if (!updated) return res.status(404).json({ message: "Product not found" });
-      res.json(updated);
+      res.json(normalizeProduct(updated));
     } catch (error: any) {
       res.status(500).json({ message: "Error updating product", error: error.message });
     }
@@ -609,7 +615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const generateReceiptPDF = (doc: PDFKit.PDFDocument, order: any) => {
     const items = order.items || [];
     const subtotal = items.reduce((sum: number, item: any) => sum + (item.productPrice * item.quantity), 0);
-    const tax = Math.round(subtotal * 0.1);
+    const tax = Math.round(subtotal * 0.05);
     const total = subtotal + tax;
 
     doc.fontSize(28).font('Helvetica-Bold').text('RECEIPT', { align: 'center' });
@@ -651,7 +657,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .text(`${order.shippingCity}, ${order.shippingPostalCode}`, 320, infoY + 100)
       .text(order.shippingCountry, 320, infoY + 115);
     
-    doc.y = infoY + 140;
+    const shippingTypeMap: { [key: string]: string } = {
+      'instant': 'Instant Delivery',
+      'express': 'Express Delivery',
+      'prioritize': 'Prioritize Delivery',
+      'free': 'Premium Free Shipping'
+    };
+    const shippingTypeLabel = shippingTypeMap[order.shippingType] || order.shippingType;
+    doc.fontSize(10).font('Helvetica-Bold').text('SHIPPING METHOD', 320, infoY + 135);
+    doc.fontSize(10).font('Helvetica').text(shippingTypeLabel, 320, infoY + 150);
+    
+    doc.y = infoY + 175;
     doc.moveDown(1);
 
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
@@ -693,7 +709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     doc.fontSize(10).font('Helvetica').text('Subtotal:', totalsX, totalsY, { width: 80, align: 'left' });
     doc.text(`$${(subtotal / 100).toFixed(2)}`, totalsX + 80, totalsY, { width: 70, align: 'right' });
 
-    doc.text('Tax (10%):', totalsX, totalsY + 20, { width: 80, align: 'left' });
+    doc.text('Tax (5%):', totalsX, totalsY + 20, { width: 80, align: 'left' });
     doc.text(`$${(tax / 100).toFixed(2)}`, totalsX + 80, totalsY + 20, { width: 70, align: 'right' });
 
     doc.moveTo(totalsX, totalsY + 40).lineTo(550, totalsY + 40).stroke();
